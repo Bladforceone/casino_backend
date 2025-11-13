@@ -18,8 +18,8 @@ type LineSpinResponse struct {
 }
 
 type LineWin struct {
-	Line   int `json:"line"`   // 1-20
-	Symbol int `json:"symbol"` // ID символа
-	Count  int `json:"count"`  // 3-5
-	Payout int `json:"payout"` // Выплата
+	Line   int  `json:"line"`   // 1-20
+	Symbol rune `json:"symbol"` // ID символа
+	Count  int  `json:"count"`  // 3-5
+	Payout int  `json:"payout"` // Выплата
 }
