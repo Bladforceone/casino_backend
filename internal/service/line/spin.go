@@ -6,7 +6,7 @@ import (
 	"math/rand"
 )
 
-func (s *Slot5x3) Spin() (model.SpinResult, error) {
+func (s *LineService) Spin() (model.SpinResult, error) {
 	var res model.SpinResult
 
 	// платный или фриспин?
@@ -69,7 +69,7 @@ func applyMaxPayout(amount, bet, maxMult int) int {
 }
 
 // Строим массив символов и их весов для randomWeighted
-func buildReelWeights(cfg *model.SlotsConfig) ([]string, []int) {
+func buildReelWeights(cfg *model.LineConfig) ([]string, []int) {
 	var syms []string
 	var weights []int
 	for sym, w := range cfg.SymbolWeights {
@@ -83,7 +83,7 @@ func buildReelWeights(cfg *model.SlotsConfig) ([]string, []int) {
 }
 
 // Генерация игрового поля матрицы 5x3
-func (s *Slot5x3) generateBoard(forceBonus bool) [5][3]rune {
+func (s *LineService) generateBoard(forceBonus bool) [5][3]rune {
 	var board [5][3]rune
 
 	wildReels := map[int]bool{}
@@ -120,7 +120,7 @@ func (s *Slot5x3) generateBoard(forceBonus bool) [5][3]rune {
 }
 
 // ---------- ОЦЕНКА ЛИНИЙ ----------
-func (s *Slot5x3) evaluateLines(board [5][3]rune) []model.LineWin {
+func (s *LineService) evaluateLines(board [5][3]rune) []model.LineWin {
 	var wins []model.LineWin
 	for i, line := range s.cfg.Paylines {
 		symbols := make([]rune, s.cfg.Reels)
@@ -167,7 +167,7 @@ func (s *Slot5x3) evaluateLines(board [5][3]rune) []model.LineWin {
 }
 
 // ---------- СПИН (возвращает единый SpinResult) ----------
-func (s *Slot5x3) spinOnce(forceBonus bool) model.SpinResult {
+func (s *LineService) spinOnce(forceBonus bool) model.SpinResult {
 	board := s.generateBoard(forceBonus)
 	s.LastBoard = board
 

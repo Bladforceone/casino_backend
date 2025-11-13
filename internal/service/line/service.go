@@ -4,8 +4,8 @@ import (
 	"casino_backend/internal/model"
 )
 
-type Slot5x3 struct {
-	cfg            *model.SlotsConfig
+type LineService struct {
+	cfg            *model.LineConfig
 	Bet            int
 	Balance        int
 	FreeSpins      int
@@ -16,10 +16,10 @@ type Slot5x3 struct {
 	reelWeights    []int
 }
 
-// NewSlot5x3 Создать новый слот 5x3
-func NewSlot5x3(cfg *model.SlotsConfig, balance int) *Slot5x3 {
+// NewLine Создать новый слот 5x3
+func NewLineService(cfg *model.LineConfig, balance int) *LineService {
 	syms, weights := buildReelWeights(cfg)
-	return &Slot5x3{
+	return &LineService{
 		cfg:         cfg,
 		Bet:         1,
 		Balance:     balance,

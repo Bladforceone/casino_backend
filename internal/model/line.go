@@ -1,6 +1,6 @@
 package model
 
-type SlotsConfig struct {
+type LineConfig struct {
 	Reels    int
 	Rows     int
 	Lines    int
