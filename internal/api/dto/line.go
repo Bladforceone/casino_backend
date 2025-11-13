@@ -6,15 +6,15 @@ type LineSpinRequest struct {
 }
 
 type LineSpinResponse struct {
-	Board            [5][3]int `json:"board"`              // Символы (ID)
-	LineWins         []LineWin `json:"line_wins"`          // Выигрышные линии
-	ScatterCount     int       `json:"scatter_count"`      // Кол-во скаттеров
-	ScatterPayout    int       `json:"scatter_payout"`     // Выплата по скаттерам
-	AwardedFreeSpins int       `json:"awarded_free_spins"` // Начислено фриспинов в этом спине
-	TotalPayout      int       `json:"total_payout"`       // Общая выплата
-	Balance          int       `json:"balance"`            // Баланс после
-	FreeSpinCount    int       `json:"free_spin_count"`    // Остаток фриспинов
-	InFreeSpin       bool      `json:"in_free_spin"`       // Это фриспин?
+	Board            [5][3]rune `json:"board"`              // Символы (ID)
+	LineWins         []LineWin  `json:"line_wins"`          // Выигрышные линии
+	ScatterCount     int        `json:"scatter_count"`      // Кол-во скаттеров
+	ScatterPayout    int        `json:"scatter_payout"`     // Выплата по скаттерам
+	AwardedFreeSpins int        `json:"awarded_free_spins"` // Начислено фриспинов в этом спине
+	TotalPayout      int        `json:"total_payout"`       // Общая выплата
+	Balance          int        `json:"balance"`            // Баланс после
+	FreeSpinCount    int        `json:"free_spin_count"`    // Остаток фриспинов
+	InFreeSpin       bool       `json:"in_free_spin"`       // Это фриспин?
 }
 
 type LineWin struct {
