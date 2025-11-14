@@ -1,29 +1,16 @@
 package line
 
 import (
-	"casino_backend/internal/model"
+	"casino_backend/internal/config"
 )
 
 type LineService struct {
-	cfg            *model.LineConfig
-	Bet            int
-	Balance        int
-	FreeSpins      int
-	InFreeSpins    bool
-	GuaranteeBonus bool
-	LastBoard      [5][3]rune
-	reelPool       []string
-	reelWeights    []int
+	cfg *config.LineConfig
 }
 
 // NewLine Создать новый слот 5x3
-func NewLineService(cfg *model.LineConfig, balance int) *LineService {
-	syms, weights := buildReelWeights(cfg)
+func NewLineService(cfg *config.LineConfig) *LineService {
 	return &LineService{
-		cfg:         cfg,
-		Bet:         1,
-		Balance:     balance,
-		reelPool:    syms, // оставим для совместимости
-		reelWeights: weights,
+		cfg: cfg,
 	}
 }

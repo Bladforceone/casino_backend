@@ -5,6 +5,13 @@ import (
 	"casino_backend/internal/model"
 )
 
+func ToLineSpin(req dto.LineSpinRequest) model.LineSpin {
+	return model.LineSpin{
+		Bet:      req.Bet,
+		BuyBonus: req.BuyBonus,
+	}
+}
+
 func ToLineSpinResponse(resp model.SpinResult) dto.LineSpinResponse {
 	return dto.LineSpinResponse{
 		Board:            resp.Board,

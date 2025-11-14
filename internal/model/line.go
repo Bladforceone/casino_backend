@@ -1,17 +1,8 @@
 package model
 
-type LineConfig struct {
-	Reels    int
-	Rows     int
-	Lines    int
-	Paylines [][]int
-
-	SymbolWeights       map[string]int
-	WildChanceOnReel234 float64
-	Pays                map[string]map[int]int
-	FreeSpinsByScatter  map[int]int
-	BuyBonusMultiplier  int
-	MaxPayoutMultiplier int
+type LineSpin struct {
+	Bet      int
+	BuyBonus bool
 }
 
 type SpinResult struct {

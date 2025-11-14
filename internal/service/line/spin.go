@@ -6,7 +6,60 @@ import (
 	"math/rand"
 )
 
-func (s *LineService) Spin() (model.SpinResult, error) {
+var (
+	// Линии выплат
+	playLines = [][]int{
+		{1, 1, 1, 1, 1},
+		{0, 0, 0, 0, 0},
+		{2, 2, 2, 2, 2},
+		{0, 1, 2, 1, 0},
+		{2, 1, 0, 1, 2},
+		{0, 0, 1, 0, 0},
+		{2, 2, 1, 2, 2},
+		{1, 0, 0, 0, 1},
+		{1, 2, 2, 2, 1},
+		{1, 0, 1, 0, 1},
+		{1, 2, 1, 2, 1},
+		{0, 1, 0, 1, 0},
+		{2, 1, 2, 1, 2},
+		{1, 1, 0, 1, 1},
+		{1, 1, 2, 1, 1},
+		{0, 1, 1, 1, 2},
+		{2, 1, 1, 1, 0},
+		{0, 0, 1, 2, 2},
+		{2, 2, 1, 0, 0},
+		{1, 0, 2, 0, 1},
+	}
+	// Таблица выплат
+	pays = map[string]map[int]int{
+		"S1": {3: 25, 4: 150, 5: 450},
+		"S2": {3: 25, 4: 150, 5: 450},
+		"S3": {3: 25, 4: 150, 5: 450},
+		"S4": {3: 25, 4: 150, 5: 450},
+		"S5": {3: 75, 4: 250, 5: 1000},
+		"S6": {3: 125, 4: 500, 5: 2500},
+		"S7": {3: 125, 4: 500, 5: 2500},
+		"S8": {3: 250, 4: 1250, 5: 12500},
+		"B":  {1: 50, 2: 100, 3: 250, 4: 500, 5: 1000},
+	}
+
+	// Бесплатные вращения
+	freeSpinsByScatter = map[int]int{3: 10, 4: 15, 5: 20}
+)
+
+const (
+	// Барабаны
+	reels = 5
+	// Линии
+	rows = 3
+
+	// Стоимость покупки бонуса (x ставки)
+	buyBonusMultiplier = 100
+	// Максимальная выплата в кратности ставки
+	maxPayoutMultiplier = 10000
+)
+
+func (s *LineService) Spin(spin model.LineSpin) (model.SpinResult, error) {
 	var res model.SpinResult
 
 	// платный или фриспин?
@@ -39,7 +92,6 @@ func (s *LineService) Spin() (model.SpinResult, error) {
 	}, nil
 }
 
-// ---------- ВСПОМОГАТЕЛЬНОЕ ----------
 // Рандомный выбор по весам
 func randomWeighted(symbols []string, weights []int) string {
 	total := 0
@@ -88,7 +140,7 @@ func (s *LineService) generateBoard(forceBonus bool) [5][3]rune {
 
 	wildReels := map[int]bool{}
 	for r := 1; r <= 3; r++ {
-		if rand.Float64() < s.cfg.WildChanceOnReel234 || s.InFreeSpins {
+		if rand.Float64() < s.cfg.WildChance() || s.InFreeSpins {
 			wildReels[r] = true
 		}
 	}
@@ -96,15 +148,15 @@ func (s *LineService) generateBoard(forceBonus bool) [5][3]rune {
 	scatterPositions := map[[2]int]bool{}
 	if forceBonus || s.GuaranteeBonus {
 		s.GuaranteeBonus = false
-		cols := rand.Perm(s.cfg.Reels)[:3]
+		cols := rand.Perm(reels)[:3]
 		for _, reel := range cols {
-			row := rand.Intn(s.cfg.Rows)
+			row := rand.Intn(rows)
 			scatterPositions[[2]int{reel, row}] = true
 		}
 	}
 
-	for r := 0; r < s.cfg.Reels; r++ {
-		for row := 0; row < s.cfg.Rows; row++ {
+	for r := 0; r < reels; r++ {
+		for row := 0; row < rows; row++ {
 			if wildReels[r] {
 				board[r][row] = 'W'
 			} else if scatterPositions[[2]int{r, row}] {
@@ -119,12 +171,12 @@ func (s *LineService) generateBoard(forceBonus bool) [5][3]rune {
 	return board
 }
 
-// ---------- ОЦЕНКА ЛИНИЙ ----------
+// Оценка линий
 func (s *LineService) evaluateLines(board [5][3]rune) []model.LineWin {
 	var wins []model.LineWin
-	for i, line := range s.cfg.Paylines {
-		symbols := make([]rune, s.cfg.Reels)
-		for r := 0; r < s.cfg.Reels; r++ {
+	for i, line := range playLines {
+		symbols := make([]rune, reels)
+		for r := 0; r < 5; r++ {
 			symbols[r] = board[r][line[r]]
 		}
 		if symbols[0] == 'B' {
@@ -150,7 +202,7 @@ func (s *LineService) evaluateLines(board [5][3]rune) []model.LineWin {
 			}
 		}
 		if count >= 3 {
-			if pays, ok := s.cfg.Pays[string(base)]; ok {
+			if pays, ok := pays[string(base)]; ok {
 				if val, ok := pays[count]; ok {
 					win := model.LineWin{
 						Line:   i + 1,
@@ -166,15 +218,15 @@ func (s *LineService) evaluateLines(board [5][3]rune) []model.LineWin {
 	return wins
 }
 
-// ---------- СПИН (возвращает единый SpinResult) ----------
+// Один спин (возвращает единый SpinResult)
 func (s *LineService) spinOnce(forceBonus bool) model.SpinResult {
 	board := s.generateBoard(forceBonus)
 	s.LastBoard = board
 
 	// count scatters
 	scatters := 0
-	for r := 0; r < s.cfg.Reels; r++ {
-		for c := 0; c < s.cfg.Rows; c++ {
+	for r := 0; r < reels; r++ {
+		for c := 0; c < rows; c++ {
 			if board[r][c] == 'B' {
 				scatters++
 			}
@@ -184,7 +236,7 @@ func (s *LineService) spinOnce(forceBonus bool) model.SpinResult {
 	// scatter payout
 	var scatterPayout int
 	if scatters > 0 {
-		if val, ok := s.cfg.Pays["B"][scatters]; ok {
+		if val, ok := pays["B"][scatters]; ok {
 			scatterPayout = val * s.Bet / 100
 		}
 	}
