@@ -34,3 +34,15 @@ func (repo *repo) GetBalance(userID string) (int, error) {
 
 	return user.balance, nil
 }
+
+func (repo *repo) UpdateBalance(userID string, newBalance int) error {
+	repo.mtx.Lock()
+	defer repo.mtx.Unlock()
+	user, exists := repo.users[userID]
+	if !exists {
+		return errors.New("user not found")
+	}
+
+	user.balance = newBalance
+	return nil
+}

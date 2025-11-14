@@ -2,6 +2,7 @@ package line
 
 import (
 	"casino_backend/internal/repository"
+	"errors"
 	"sync"
 )
 
@@ -36,4 +37,16 @@ func (r *repo) GetCountFreeSpins(userID string) (int, error) {
 	}
 
 	return line.freeSpinsCount, nil
+}
+
+func (r *repo) UpdateCountFreeSpins(userID string, newCount int) error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+	line, exists := r.lines[userID]
+	if !exists {
+		return errors.New("line data not found")
+	}
+
+	line.freeSpinsCount = newCount
+	return nil
 }
