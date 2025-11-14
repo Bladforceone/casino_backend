@@ -1,7 +1,10 @@
 package service
 
-import "casino_backend/internal/model"
+import (
+	"casino_backend/internal/model"
+	"context"
+)
 
 type SlotsService interface {
-	Spin(spin model.LineSpin) (model.SpinResult, error)
+	Spin(ctx context.Context, spinReq model.LineSpin) (model.SpinResult, error)
 }

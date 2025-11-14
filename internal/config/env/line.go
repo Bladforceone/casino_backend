@@ -2,54 +2,37 @@ package env
 
 import (
 	"casino_backend/internal/config"
-	"encoding/json"
-	"errors"
 	"os"
-	"strconv"
-)
 
-const (
-	symbolWeights = "SYMBOL_WEIGHTS"
-	wildChance    = "WILD_CHANCE_ON_REEL_2_3_4"
+	"gopkg.in/yaml.v3"
 )
 
 type lineConfig struct {
-	symbolWeights       map[string]int
-	wildChanceOnReel234 float64
+	SymbolWeightsData map[string]int `yaml:"symbol_weights"`
+	WildChanceValue   float64        `yaml:"wild_chance_on_reel_2_3_4"`
+	FreeSpinsScatter  map[int]int    `yaml:"free_spins_by_scatter"`
 }
 
-func NewLineConfig() (config.LineConfig, error) {
-	symbolWeightsStr := os.Getenv(symbolWeights)
-	if len(symbolWeightsStr) == 0 {
-		return nil, errors.New("environment variable 'SYMBOL_WEIGHTS' is not set")
-	}
-
-	var symbolWeights map[string]int
-	err := json.Unmarshal([]byte(symbolWeightsStr), &symbolWeights)
+func NewLineConfigFromYAML(path string) (config.LineConfig, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-
-	wildChanceStr := os.Getenv(wildChance)
-	if len(wildChanceStr) == 0 {
-		return nil, errors.New("environment variable 'WILD_CHANCE' is not set")
-	}
-
-	wildChance, err := strconv.ParseFloat(wildChanceStr, 64)
-	if err != nil {
+	var cfg lineConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
-
-	return &lineConfig{
-		symbolWeights:       symbolWeights,
-		wildChanceOnReel234: wildChance,
-	}, nil
+	return &cfg, nil
 }
 
 func (cfg *lineConfig) SymbolWeights() map[string]int {
-	return cfg.symbolWeights
+	return cfg.SymbolWeightsData
 }
 
 func (cfg *lineConfig) WildChance() float64 {
-	return cfg.wildChanceOnReel234
+	return cfg.WildChanceValue
+}
+
+func (cfg *lineConfig) FreeSpinsByScatter() map[int]int {
+	return cfg.FreeSpinsScatter
 }

@@ -6,7 +6,7 @@ type LineSpin struct {
 }
 
 type SpinResult struct {
-	Board            [5][3]rune
+	Board            [5][3]string
 	LineWins         []LineWin
 	ScatterCount     int
 	ScatterPayout    int
@@ -19,7 +19,7 @@ type SpinResult struct {
 
 type LineWin struct {
 	Line   int
-	Symbol rune
+	Symbol string
 	Count  int
 	Payout int
 }
