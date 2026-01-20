@@ -1,29 +1,157 @@
 package auth
 
-import "net/http"
+import (
+	dto "casino_backend/internal/api/dto/auth"
+	"casino_backend/internal/service"
+	"casino_backend/pkg/req"
+	"log"
+	"net/http"
+)
 
-type AuthHandlerDeps struct {
+type HandlerDeps struct {
+	serv service.AuthService
 }
 
-type AuthHandler struct {
+type Handler struct {
+	serv service.AuthService
 }
 
-func NewAuthHandler() *AuthHandler {
-	return &AuthHandler{}
+func NewHandler(deps HandlerDeps) *Handler {
+	return &Handler{serv: deps.serv}
 }
 
-func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+// Register создаёт пользователя, открывает сессию
+// и возвращает access_token и session_id через cookies
+func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	requestBody, err := req.Decode[dto.RegisterRequest](r.Body)
+	if err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
 
+	accessToken, sessionID, err := h.serv.Register(
+		r.Context(),
+		requestBody.Name,
+		requestBody.Login,
+		requestBody.Password,
+	)
+	if err != nil {
+		log.Println("Register error:", err)
+		http.Error(w, "register failed", http.StatusConflict)
+		return
+	}
+
+	setSessionIDCookie(w, sessionID)
+
+	setAccessTokenCookie(w, accessToken)
+
+	w.WriteHeader(http.StatusCreated)
 }
 
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+// Login создаёт сессию и возвращает access_token и session_id через cookies
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	requestBody, err := req.Decode[dto.LoginRequest](r.Body)
+	if err != nil {
+		return
+	}
 
+	accessToken, sessionID, err := h.serv.Login(
+		r.Context(),
+		requestBody.Login,
+		requestBody.Password,
+	)
+	if err != nil {
+		log.Println("Login error:", err)
+		http.Error(w, "login failed", http.StatusUnauthorized)
+		return
+	}
+
+	setSessionIDCookie(w, sessionID)
+
+	setAccessTokenCookie(w, accessToken)
+
+	w.WriteHeader(http.StatusOK)
 }
 
-func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+// Refresh обновляет access_token по session_id
+func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("session_id")
+	if err != nil {
+		http.Error(w, "no session_id cookie", http.StatusUnauthorized)
+		return
+	}
 
+	sessionID := c.Value
+
+	accessToken, err := h.serv.Refresh(r.Context(), sessionID)
+	if err != nil {
+		log.Println("Refresh error:", err)
+		http.Error(w, "refresh failed", http.StatusUnauthorized)
+		return
+	}
+
+	setAccessTokenCookie(w, accessToken)
+
+	w.WriteHeader(http.StatusOK)
 }
 
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+// Logout закрывает сессию по session_id
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("session_id")
+	if err != nil {
+		http.Error(w, "no session_id cookie", http.StatusUnauthorized)
+		return
+	}
 
+	sessionID := c.Value
+
+	err = h.serv.Logout(r.Context(), sessionID)
+	if err != nil {
+		log.Println("Logout error:", err)
+		http.Error(w, "logout failed", http.StatusInternalServerError)
+		return
+	}
+
+	deleteSessionIDCookie(w)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// setAccessTokenCookie устанавливает cookie с access_token
+func setAccessTokenCookie(w http.ResponseWriter, accessToken string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   15 * 60, // 15 минут
+	})
+}
+
+// setSessionIDCookie устанавливает cookie с session_id
+func setSessionIDCookie(w http.ResponseWriter, sessionID string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_id",
+		Value:    sessionID,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   30 * 24 * 60 * 60, // 30 дней
+	})
+}
+
+// deleteSessionIDCookie удаляет cookie с session_id
+func deleteSessionIDCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
 }

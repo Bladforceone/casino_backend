@@ -18,3 +18,10 @@ type CascadeService interface {
 	Deposit(amount int) error
 	CheckData() (*model.CascadeData, error)
 }
+
+type AuthService interface {
+	Register(ctx context.Context, name, login, password string) (accessToken string, sessionID string, err error)
+	Login(ctx context.Context, login, password string) (accessToken string, sessionID string, err error)
+	Refresh(ctx context.Context, sessionID string) (newAccessToken string, err error)
+	Logout(ctx context.Context, sessionID string) error
+}
