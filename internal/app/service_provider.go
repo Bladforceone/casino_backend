@@ -1,0 +1,144 @@
+package app
+
+import (
+	cascadeAPI "casino_backend/internal/api/cascade"
+	lineAPI "casino_backend/internal/api/line"
+	"casino_backend/internal/config"
+	"casino_backend/internal/config/env"
+	"casino_backend/internal/repository"
+	"casino_backend/internal/repository/cascade_repo"
+	"casino_backend/internal/repository/line_repo"
+	"casino_backend/internal/service"
+	"casino_backend/internal/service/cascade"
+	"casino_backend/internal/service/line"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
+)
+
+type ServiceProvider struct {
+	// Line bits
+	lineCfg  config.LineConfig
+	lineRepo repository.LineRepository
+	lineServ service.LineService
+	lineHand *lineAPI.Handler
+	// Cascade bits
+	cascadeCfg  config.CascadeConfig
+	cascadeRepo repository.CascadeRepository
+	cascadeServ service.CascadeService
+	cascadeHand *cascadeAPI.Handler
+	// Router
+	router chi.Router
+}
+
+func newServiceProvider() *ServiceProvider {
+	return &ServiceProvider{}
+}
+
+func (sp *ServiceProvider) LineCfg() config.LineConfig {
+	if sp.lineCfg == nil {
+		cfg, err := env.NewLineConfigFromYAML("config.yaml")
+		if err != nil {
+			panic("failed to get line config: " + err.Error())
+		}
+
+		sp.lineCfg = cfg
+	}
+
+	return sp.lineCfg
+}
+
+func (sp *ServiceProvider) LineRepository() repository.LineRepository {
+	if sp.lineRepo == nil {
+		sp.lineRepo = line_repo.NewLineRepository()
+	}
+	return sp.lineRepo
+}
+
+func (sp *ServiceProvider) LineService() service.LineService {
+	if sp.lineServ == nil {
+		sp.lineServ = line.NewLineService(sp.LineCfg(), sp.LineRepository())
+	}
+
+	return sp.lineServ
+}
+
+func (sp *ServiceProvider) LineHandler() *lineAPI.Handler {
+	if sp.lineHand == nil {
+		sp.lineHand = lineAPI.NewHandler(lineAPI.HandlerDeps{
+			Serv: sp.LineService(),
+		})
+	}
+
+	return sp.lineHand
+}
+
+func (sp *ServiceProvider) CascadeCfg() config.CascadeConfig {
+	if sp.cascadeCfg == nil {
+		cfg, err := env.NewCascadeConfigFromYAML("config.yaml")
+		if err != nil {
+			panic("failed to get cascade config: " + err.Error())
+		}
+		sp.cascadeCfg = cfg
+	}
+	return sp.cascadeCfg
+}
+
+func (sp *ServiceProvider) CascadeRepository() repository.CascadeRepository {
+	if sp.cascadeRepo == nil {
+		sp.cascadeRepo = cascade_repo.NewCascadeRepository()
+	}
+	return sp.cascadeRepo
+}
+
+func (sp *ServiceProvider) CascadeService() service.CascadeService {
+	if sp.cascadeServ == nil {
+		sp.cascadeServ = cascade.NewCascadeService(sp.CascadeCfg(), sp.CascadeRepository())
+	}
+	return sp.cascadeServ
+}
+
+func (sp *ServiceProvider) CascadeHandler() *cascadeAPI.Handler {
+	if sp.cascadeHand == nil {
+		sp.cascadeHand = cascadeAPI.NewHandler(cascadeAPI.HandlerDeps{Serv: sp.CascadeService()})
+	}
+	return sp.cascadeHand
+}
+
+func (sp *ServiceProvider) Router() chi.Router {
+	if sp.router == nil {
+		r := chi.NewRouter()
+
+		// CORS middleware
+		r.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   []string{"*"},
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+			ExposedHeaders:   []string{"Link"},
+			AllowCredentials: false,
+			MaxAge:           300,
+		}))
+
+		// Line endpoints
+		lineHandler := sp.LineHandler()
+		r.Route("line", func(rr chi.Router) {
+			r.Post("/spin", lineHandler.Spin)
+			r.Post("/buy-bonus", lineHandler.BuyBonus)
+			r.Post("/deposit", lineHandler.Deposit)
+			r.Get("/check-data", lineHandler.CheckData)
+		})
+
+		// Cascade endpoints
+		cascadeHandler := sp.CascadeHandler()
+		r.Route("/cascade", func(rr chi.Router) {
+			rr.Post("/spin", cascadeHandler.Spin)
+			rr.Post("/buy-bonus", cascadeHandler.BuyBonus)
+			rr.Post("/deposit", cascadeHandler.Deposit)
+			rr.Get("/check-data", cascadeHandler.CheckData)
+		})
+
+		sp.router = r
+	}
+
+	return sp.router
+}
