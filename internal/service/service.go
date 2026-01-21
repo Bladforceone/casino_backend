@@ -25,3 +25,8 @@ type AuthService interface {
 	Refresh(ctx context.Context, sessionID string) (newAccessToken string, err error)
 	Logout(ctx context.Context, sessionID string) error
 }
+
+type PaymentService interface {
+	Deposit(ctx context.Context, amount int) error
+	GetBalance(ctx context.Context) (int, error)
+}
