@@ -3,6 +3,8 @@ package line_repo
 import (
 	"casino_backend/internal/repository"
 	"sync"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type memoryData struct {
@@ -13,10 +15,14 @@ type memoryData struct {
 type repo struct {
 	mtx sync.RWMutex
 	mem memoryData
+	dbc *pgxpool.Pool
 }
 
-func NewLineRepository() repository.LineRepository {
-	return &repo{mem: memoryData{}}
+func NewLineRepository(dbc *pgxpool.Pool) repository.LineRepository {
+	return &repo{
+		mem: memoryData{},
+		dbc: dbc,
+	}
 }
 
 func (r *repo) GetBalance() (int, error) {

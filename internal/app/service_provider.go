@@ -11,12 +11,17 @@ import (
 	"casino_backend/internal/service"
 	"casino_backend/internal/service/cascade"
 	"casino_backend/internal/service/line"
+	"context"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ServiceProvider struct {
+	// Database
+	pgConfig config.PGConfig
+	dbPool   *pgxpool.Pool
 	// Line bits
 	lineCfg  config.LineConfig
 	lineRepo repository.LineRepository
@@ -36,6 +41,32 @@ func newServiceProvider() *ServiceProvider {
 	return &ServiceProvider{}
 }
 
+func (sp *ServiceProvider) PgConfig() config.PGConfig {
+	if sp.pgConfig == nil {
+		cfg, err := env.NewPGConfig()
+		if err != nil {
+			panic("failed to get database config: " + err.Error())
+		}
+		sp.pgConfig = cfg
+	}
+	return sp.pgConfig
+}
+
+func (sp *ServiceProvider) DBPool(ctx context.Context) *pgxpool.Pool {
+	if sp.dbPool == nil {
+		dbc, err := pgxpool.New(ctx, sp.pgConfig.DSN())
+		if err != nil {
+			panic("failed to create db pool: " + err.Error())
+		}
+		err = dbc.Ping(ctx)
+		if err != nil {
+			panic("failed to ping db: " + err.Error())
+		}
+		sp.dbPool = dbc
+	}
+	return sp.dbPool
+}
+
 func (sp *ServiceProvider) LineCfg() config.LineConfig {
 	if sp.lineCfg == nil {
 		cfg, err := env.NewLineConfigFromYAML("config.yaml")
@@ -49,28 +80,27 @@ func (sp *ServiceProvider) LineCfg() config.LineConfig {
 	return sp.lineCfg
 }
 
-func (sp *ServiceProvider) LineRepository() repository.LineRepository {
+func (sp *ServiceProvider) LineRepository(ctx context.Context) repository.LineRepository {
 	if sp.lineRepo == nil {
-		sp.lineRepo = line_repo.NewLineRepository()
+		sp.lineRepo = line_repo.NewLineRepository(sp.DBPool(ctx))
 	}
 	return sp.lineRepo
 }
 
-func (sp *ServiceProvider) LineService() service.LineService {
+func (sp *ServiceProvider) LineService(ctx context.Context) service.LineService {
 	if sp.lineServ == nil {
-		sp.lineServ = line.NewLineService(sp.LineCfg(), sp.LineRepository())
+		sp.lineServ = line.NewLineService(sp.LineCfg(), sp.LineRepository(ctx))
 	}
 
 	return sp.lineServ
 }
 
-func (sp *ServiceProvider) LineHandler() *lineAPI.Handler {
+func (sp *ServiceProvider) LineHandler(ctx context.Context) *lineAPI.Handler {
 	if sp.lineHand == nil {
 		sp.lineHand = lineAPI.NewHandler(lineAPI.HandlerDeps{
-			Serv: sp.LineService(),
+			Serv: sp.LineService(ctx),
 		})
 	}
-
 	return sp.lineHand
 }
 
@@ -85,23 +115,23 @@ func (sp *ServiceProvider) CascadeCfg() config.CascadeConfig {
 	return sp.cascadeCfg
 }
 
-func (sp *ServiceProvider) CascadeRepository() repository.CascadeRepository {
+func (sp *ServiceProvider) CascadeRepository(ctx context.Context) repository.CascadeRepository {
 	if sp.cascadeRepo == nil {
-		sp.cascadeRepo = cascade_repo.NewCascadeRepository()
+		sp.cascadeRepo = cascade_repo.NewCascadeRepository(sp.DBPool(ctx))
 	}
 	return sp.cascadeRepo
 }
 
-func (sp *ServiceProvider) CascadeService() service.CascadeService {
+func (sp *ServiceProvider) CascadeService(ctx context.Context) service.CascadeService {
 	if sp.cascadeServ == nil {
-		sp.cascadeServ = cascade.NewCascadeService(sp.CascadeCfg(), sp.CascadeRepository())
+		sp.cascadeServ = cascade.NewCascadeService(sp.CascadeCfg(), sp.CascadeRepository(ctx))
 	}
 	return sp.cascadeServ
 }
 
-func (sp *ServiceProvider) CascadeHandler() *cascadeAPI.Handler {
+func (sp *ServiceProvider) CascadeHandler(ctx context.Context) *cascadeAPI.Handler {
 	if sp.cascadeHand == nil {
-		sp.cascadeHand = cascadeAPI.NewHandler(cascadeAPI.HandlerDeps{Serv: sp.CascadeService()})
+		sp.cascadeHand = cascadeAPI.NewHandler(cascadeAPI.HandlerDeps{Serv: sp.CascadeService(ctx)})
 	}
 	return sp.cascadeHand
 }
@@ -118,7 +148,7 @@ func (sp *ServiceProvider) HTTPCfg() config.HTTPConfig {
 	return sp.httpCfg
 }
 
-func (sp *ServiceProvider) Router() chi.Router {
+func (sp *ServiceProvider) Router(ctx context.Context) chi.Router {
 	if sp.router == nil {
 		r := chi.NewRouter()
 
@@ -133,7 +163,7 @@ func (sp *ServiceProvider) Router() chi.Router {
 		}))
 
 		// Line endpoints
-		lineHandler := sp.LineHandler()
+		lineHandler := sp.LineHandler(ctx)
 		r.Route("line", func(rr chi.Router) {
 			r.Post("/spin", lineHandler.Spin)
 			r.Post("/buy-bonus", lineHandler.BuyBonus)
@@ -142,7 +172,7 @@ func (sp *ServiceProvider) Router() chi.Router {
 		})
 
 		// Cascade endpoints
-		cascadeHandler := sp.CascadeHandler()
+		cascadeHandler := sp.CascadeHandler(ctx)
 		r.Route("/cascade", func(rr chi.Router) {
 			rr.Post("/spin", cascadeHandler.Spin)
 			rr.Post("/buy-bonus", cascadeHandler.BuyBonus)

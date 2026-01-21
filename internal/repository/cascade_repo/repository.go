@@ -3,6 +3,8 @@ package cascade_repo
 import (
 	"casino_backend/internal/repository"
 	"sync"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type memoryData struct {
@@ -15,10 +17,14 @@ type memoryData struct {
 type repo struct {
 	mtx sync.RWMutex
 	mem memoryData
+	dbc *pgxpool.Pool
 }
 
-func NewCascadeRepository() repository.CascadeRepository {
-	return &repo{mem: memoryData{}}
+func NewCascadeRepository(dbc *pgxpool.Pool) repository.CascadeRepository {
+	return &repo{
+		mem: memoryData{},
+		dbc: dbc,
+	}
 }
 
 func (r *repo) GetBalance() (int, error) {
