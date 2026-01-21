@@ -2,55 +2,86 @@ package line_repo
 
 import (
 	"casino_backend/internal/repository"
-	"sync"
+	"context"
+	"database/sql"
+	"errors"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type memoryData struct {
-	balance       int
-	freeSpinCount int
-}
+var (
+	table          = "free_spins_count"
+	playerId       = "player_id"
+	freeSpinsCount = "free_spins_count"
+)
 
 type repo struct {
-	mtx sync.RWMutex
-	mem memoryData
 	dbc *pgxpool.Pool
 }
 
 func NewLineRepository(dbc *pgxpool.Pool) repository.LineRepository {
 	return &repo{
-		mem: memoryData{},
 		dbc: dbc,
 	}
 }
 
-func (r *repo) GetBalance() (int, error) {
-	r.mtx.RLock()
-	defer r.mtx.RUnlock()
+func (r *repo) GetFreeSpinCount(ctx context.Context, id int) (int, error) {
+	// Формируем запрос
+	query := sq.Select(freeSpinsCount).
+		From(table).
+		Where(sq.Eq{playerId: id})
 
-	return r.mem.balance, nil
+	sqlStr, args, err := query.ToSql()
+	if err != nil {
+		return 0, err
+	}
+
+	var count int
+	err = r.dbc.QueryRow(ctx, sqlStr, args...).Scan(&count)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	return count, nil
 }
 
-func (r *repo) UpdateBalance(amount int) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+func (r *repo) UpdateFreeSpinCount(ctx context.Context, id int, count int) error {
+	// Формируем запрос
+	query := sq.Update(table).
+		Set(freeSpinsCount, count).
+		Where(sq.Eq{playerId: id})
 
-	r.mem.balance = amount
-	return nil
-}
+	sqlStr, args, err := query.ToSql()
+	if err != nil {
+		return err
+	}
 
-func (r *repo) GetFreeSpinCount() (int, error) {
-	r.mtx.RLock()
-	defer r.mtx.RUnlock()
+	res, err := r.dbc.Exec(ctx, sqlStr, args...)
+	if err != nil {
+		return err
+	}
 
-	return r.mem.freeSpinCount, nil
-}
+	rowsAffected := res.RowsAffected()
 
-func (r *repo) UpdateFreeSpinCount(count int) error {
-	r.mtx.Lock()
-	defer r.mtx.Unlock()
+	// Если rowsAffected = 0 - то записи не существует и делаем вставку
+	if rowsAffected == 0 {
+		insertQuery := sq.Insert(table).
+			Columns(playerId, freeSpinsCount).
+			Values(id, count)
 
-	r.mem.freeSpinCount = count
+		sqlStr, args, err = insertQuery.ToSql()
+		if err != nil {
+			return err
+		}
+
+		_, err = r.dbc.Exec(ctx, sqlStr, args...)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

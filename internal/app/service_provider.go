@@ -21,7 +21,7 @@ import (
 type ServiceProvider struct {
 	// Database
 	pgConfig config.PGConfig
-	dbPool   *pgxpool.Pool
+	dbClient *pgxpool.Pool
 	// Line bits
 	lineCfg  config.LineConfig
 	lineRepo repository.LineRepository
@@ -52,8 +52,8 @@ func (sp *ServiceProvider) PgConfig() config.PGConfig {
 	return sp.pgConfig
 }
 
-func (sp *ServiceProvider) DBPool(ctx context.Context) *pgxpool.Pool {
-	if sp.dbPool == nil {
+func (sp *ServiceProvider) DBClient(ctx context.Context) *pgxpool.Pool {
+	if sp.dbClient == nil {
 		dbc, err := pgxpool.New(ctx, sp.pgConfig.DSN())
 		if err != nil {
 			panic("failed to create db pool: " + err.Error())
@@ -62,9 +62,9 @@ func (sp *ServiceProvider) DBPool(ctx context.Context) *pgxpool.Pool {
 		if err != nil {
 			panic("failed to ping db: " + err.Error())
 		}
-		sp.dbPool = dbc
+		sp.dbClient = dbc
 	}
-	return sp.dbPool
+	return sp.dbClient
 }
 
 func (sp *ServiceProvider) LineCfg() config.LineConfig {
@@ -82,7 +82,7 @@ func (sp *ServiceProvider) LineCfg() config.LineConfig {
 
 func (sp *ServiceProvider) LineRepository(ctx context.Context) repository.LineRepository {
 	if sp.lineRepo == nil {
-		sp.lineRepo = line_repo.NewLineRepository(sp.DBPool(ctx))
+		sp.lineRepo = line_repo.NewLineRepository(sp.DBClient(ctx))
 	}
 	return sp.lineRepo
 }
@@ -117,7 +117,7 @@ func (sp *ServiceProvider) CascadeCfg() config.CascadeConfig {
 
 func (sp *ServiceProvider) CascadeRepository(ctx context.Context) repository.CascadeRepository {
 	if sp.cascadeRepo == nil {
-		sp.cascadeRepo = cascade_repo.NewCascadeRepository(sp.DBPool(ctx))
+		sp.cascadeRepo = cascade_repo.NewCascadeRepository(sp.DBClient(ctx))
 	}
 	return sp.cascadeRepo
 }
