@@ -2,6 +2,7 @@ package auth
 
 import (
 	dto "casino_backend/internal/api/dto/auth"
+	"casino_backend/internal/converter"
 	"casino_backend/internal/service"
 	"casino_backend/pkg/req"
 	"log"
@@ -31,9 +32,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	accessToken, sessionID, err := h.serv.Register(
 		r.Context(),
-		requestBody.Name,
-		requestBody.Login,
-		requestBody.Password,
+		converter.RegisterRequestToUserModel(&requestBody),
 	)
 	if err != nil {
 		log.Println("Register error:", err)
