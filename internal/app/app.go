@@ -22,8 +22,8 @@ func (s *App) Run() error {
 
 	r := s.ServiceProvider.Router()
 
-	log.Printf("starting server at port 8080")
-	err := http.ListenAndServe(":8080", r)
+	log.Printf("starting server at %s", s.ServiceProvider.HTTPCfg().Address())
+	err := http.ListenAndServe(s.ServiceProvider.HTTPCfg().Address(), r)
 	if err != nil {
 		return err
 	}

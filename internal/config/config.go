@@ -13,3 +13,7 @@ type CascadeConfig interface {
 	BonusAwards() map[int]int
 	PayoutTable() map[int]int
 }
+
+type HTTPConfig interface {
+	Address() string
+}

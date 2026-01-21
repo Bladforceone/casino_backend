@@ -27,8 +27,9 @@ type ServiceProvider struct {
 	cascadeRepo repository.CascadeRepository
 	cascadeServ service.CascadeService
 	cascadeHand *cascadeAPI.Handler
-	// Router
-	router chi.Router
+	// Router and HTTP config
+	httpCfg config.HTTPConfig
+	router  chi.Router
 }
 
 func newServiceProvider() *ServiceProvider {
@@ -103,6 +104,18 @@ func (sp *ServiceProvider) CascadeHandler() *cascadeAPI.Handler {
 		sp.cascadeHand = cascadeAPI.NewHandler(cascadeAPI.HandlerDeps{Serv: sp.CascadeService()})
 	}
 	return sp.cascadeHand
+}
+
+func (sp *ServiceProvider) HTTPCfg() config.HTTPConfig {
+	if sp.httpCfg == nil {
+		cfg, err := env.NewHTTPConfig()
+		if err != nil {
+			panic("failed to get http config: " + err.Error())
+		}
+		sp.httpCfg = cfg
+	}
+
+	return sp.httpCfg
 }
 
 func (sp *ServiceProvider) Router() chi.Router {
