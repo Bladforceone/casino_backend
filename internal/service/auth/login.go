@@ -1,8 +1,11 @@
 package auth
 
-import "context"
+import (
+	"casino_backend/internal/model"
+	"context"
+)
 
-func (s *serv) Login(ctx context.Context, login, password string) (accessToken string, sessionID string, err error) {
+func (s *serv) Login(ctx context.Context, user *model.User) (*model.AuthData, error) {
 	//TODO implement me
 	panic("implement me")
 }
