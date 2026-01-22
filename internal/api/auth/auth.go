@@ -22,8 +22,9 @@ func NewHandler(deps HandlerDeps) *Handler {
 	return &Handler{serv: deps.serv}
 }
 
-// Register создаёт пользователя, открывает сессию
-// и возвращает access_token и session_id через cookies
+// Register создаёт нового пользователя и создаёт сессию.
+// Возвращает в теле JSON с полем `access_token` (HTTP 201).
+// `refresh_token` и `session_id` устанавливаются через cookie.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	requestBody, err := req.Decode[dto.RegisterRequest](r.Body)
 	if err != nil {
