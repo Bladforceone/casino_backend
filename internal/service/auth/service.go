@@ -4,6 +4,7 @@ import (
 	"casino_backend/internal/repository"
 
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
+	"github.com/google/uuid"
 )
 
 type serv struct {
@@ -14,4 +15,8 @@ type serv struct {
 
 func NewService() *serv {
 	return &serv{}
+}
+
+func generateSessionID() string {
+	return uuid.New().String()
 }

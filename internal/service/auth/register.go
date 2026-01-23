@@ -6,8 +6,6 @@ import (
 	"casino_backend/pkg/token"
 	"context"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 func (s *serv) Register(ctx context.Context, user *model.User) (*model.AuthData, error) {
@@ -18,6 +16,7 @@ func (s *serv) Register(ctx context.Context, user *model.User) (*model.AuthData,
 	}
 	user.Password = passwordHash
 
+	// Переменные для хранения результатов
 	var accessToken string
 	var refreshToken string
 	var sessionID string
@@ -37,7 +36,7 @@ func (s *serv) Register(ctx context.Context, user *model.User) (*model.AuthData,
 			return err
 		}
 
-		// 3. Создать сессию
+		// 4. Создать сессию
 		err = s.authRepo.CreateSession(ctx,
 			&model.Session{
 				ID:           sessionID,
@@ -49,7 +48,7 @@ func (s *serv) Register(ctx context.Context, user *model.User) (*model.AuthData,
 			return err
 		}
 
-		// 4. Создать access токен
+		// 5. Создать access токен
 		// TODO: Вынести секретный ключ в конфиг
 		accessToken, err = token.GenerateAccessToken(user, []byte("fsfsd"), time.Minute*15)
 		if err != nil {
@@ -67,8 +66,4 @@ func (s *serv) Register(ctx context.Context, user *model.User) (*model.AuthData,
 		RefreshToken: refreshToken,
 		SessionID:    sessionID,
 	}, nil
-}
-
-func generateSessionID() string {
-	return uuid.New().String()
 }

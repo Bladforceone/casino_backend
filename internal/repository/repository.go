@@ -27,8 +27,10 @@ type AuthRepository interface {
 	CreateSession(ctx context.Context, session *model.Session) error
 	GetRefreshTokenBySessionID(ctx context.Context, sessionID string) (refreshToken string, err error)
 	DeleteSession(ctx context.Context, sessionID string) error
+	GetUserBySessionID(ctx context.Context, sessionID string) (*model.User, error)
 }
 
 type UserRepository interface {
 	CreateUser(ctx context.Context, user *model.User) (id int, err error)
+	GetUserByLogin(ctx context.Context, login string) (*model.User, error)
 }

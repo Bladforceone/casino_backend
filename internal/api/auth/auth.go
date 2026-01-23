@@ -89,15 +89,26 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // Ожидает cookie `session_id`. Вызывает сервис обновления и устанавливает обновлённый
 // `refresh_token` через cookie. Возвращает HTTP 200 без тела.
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie("session_id")
+	cs, err := r.Cookie("session_id")
 	if err != nil {
 		http.Error(w, "no session_id cookie", http.StatusUnauthorized)
 		return
 	}
 
-	sessionID := c.Value
+	cr, err := r.Cookie("refresh_token")
+	if err != nil {
+		http.Error(w, "no refresh_token cookie", http.StatusUnauthorized)
+		return
+	}
 
-	accessToken, err := h.serv.Refresh(r.Context(), sessionID)
+	sessionID := cs.Value
+	refreshToken := cr.Value
+
+	accessToken, err := h.serv.Refresh(r.Context(),
+		&model.AuthData{
+			SessionID:    sessionID,
+			RefreshToken: refreshToken,
+		})
 	if err != nil {
 		log.Println("Refresh error:", err)
 		http.Error(w, "refresh failed", http.StatusUnauthorized)
