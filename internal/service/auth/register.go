@@ -42,7 +42,7 @@ func (s *serv) Register(ctx context.Context, user *model.User) (*model.AuthData,
 				ID:           sessionID,
 				UserID:       user.ID,
 				RefreshToken: token.HashRefreshToken(refreshToken),
-				ExpiresAt:    time.Now().Add(time.Hour * 24 * 30),
+				ExpiresAt:    time.Now().Add(s.jwtConfig.RefreshTokenDuration()), // Время жизни refresh токена из конфигурации
 			})
 		if err != nil {
 			return err
