@@ -27,6 +27,6 @@ type AuthService interface {
 }
 
 type PaymentService interface {
-	Deposit(ctx context.Context, amount int) error
-	GetBalance(ctx context.Context) (int, error)
+	Deposit(ctx context.Context, userID, amount int) error
+	GetBalance(ctx context.Context, userID int) (int, error)
 }

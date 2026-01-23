@@ -178,16 +178,16 @@ func (sp *ServiceProvider) Router(ctx context.Context) chi.Router {
 			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 			ExposedHeaders:   []string{"Link"},
 			AllowCredentials: false,
-			MaxAge:           300,
+			MaxAge:           60 * 15,
 		}))
 
 		// Line endpoints
 		lineHandler := sp.LineHandler(ctx)
-		r.Route("line", func(rr chi.Router) {
-			r.Post("/spin", lineHandler.Spin)
-			r.Post("/buy-bonus", lineHandler.BuyBonus)
-			r.Post("/deposit", lineHandler.Deposit)
-			r.Get("/check-data", lineHandler.CheckData)
+		r.Route("/line", func(rr chi.Router) {
+			rr.Post("/spin", lineHandler.Spin)
+			rr.Post("/buy-bonus", lineHandler.BuyBonus)
+			rr.Post("/deposit", lineHandler.Deposit)
+			rr.Get("/check-data", lineHandler.CheckData)
 		})
 
 		// Cascade endpoints
