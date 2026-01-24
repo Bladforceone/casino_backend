@@ -1,0 +1,189 @@
+configs:
+  # ===============================
+  # RTP +50%
+  # ===============================
+  - name: rtp_plus_50
+    line_symbol_weights: { S1: 120, S2: 110, S3: 100, S4: 90, S5: 110, S6: 90, S7: 70, S8: 40, B: 20, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.20
+    line_free_spins_by_scatter: &free_spins_by_scatter { 3: 10, 4: 15, 5: 20 }
+    line_payout_table: &payout
+      S1: {3: 25, 4: 150, 5: 450}
+      S2: {3: 25, 4: 150, 5: 450}
+      S3: {3: 25, 4: 150, 5: 450}
+      S4: {3: 25, 4: 150, 5: 450}
+      S5: {3: 75, 4: 250, 5: 1000}
+      S6: {3: 125, 4: 500, 5: 2500}
+      S7: {3: 125, 4: 500, 5: 2500}
+      S8: {2: 50, 3: 250, 4: 1250, 5: 12500}
+      B:  {3: 100, 4: 500, 5: 2500}
+
+  # ===============================
+  # RTP +45%
+  # ===============================
+  - name: rtp_plus_45
+    line_symbol_weights: { S1: 130, S2: 120, S3: 110, S4: 100, S5: 105, S6: 85, S7: 65, S8: 35, B: 18, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.19
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP +40%
+  # ===============================
+  - name: rtp_plus_40
+    line_symbol_weights: { S1: 140, S2: 130, S3: 120, S4: 110, S5: 100, S6: 80, S7: 60, S8: 30, B: 16, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.18
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP +35%
+  # ===============================
+  - name: rtp_plus_35
+    line_symbol_weights: { S1: 150, S2: 140, S3: 130, S4: 120, S5: 95, S6: 75, S7: 55, S8: 26, B: 14, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.17
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP +30%
+  # ===============================
+  - name: rtp_plus_30
+    line_symbol_weights: { S1: 160, S2: 150, S3: 140, S4: 130, S5: 90, S6: 70, S7: 50, S8: 22, B: 12, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.16
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP +25%
+  # ===============================
+  - name: rtp_plus_25
+    line_symbol_weights: { S1: 170, S2: 160, S3: 150, S4: 140, S5: 85, S6: 65, S7: 45, S8: 20, B: 10, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.15
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP +20%
+  # ===============================
+  - name: rtp_plus_20
+    line_symbol_weights: { S1: 180, S2: 170, S3: 160, S4: 150, S5: 80, S6: 60, S7: 40, S8: 18, B: 9, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.14
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP +15%
+  # ===============================
+  - name: rtp_plus_15
+    line_symbol_weights: { S1: 190, S2: 180, S3: 170, S4: 160, S5: 75, S6: 55, S7: 35, S8: 16, B: 8, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.13
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP +10%
+  # ===============================
+  - name: rtp_plus_10
+    line_symbol_weights: { S1: 200, S2: 190, S3: 180, S4: 170, S5: 70, S6: 50, S7: 30, S8: 14, B: 7, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.12
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP +5%
+  # ===============================
+  - name: rtp_plus_5
+    line_symbol_weights: { S1: 210, S2: 200, S3: 190, S4: 180, S5: 65, S6: 45, S7: 25, S8: 12, B: 6, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.11
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -5%
+  # ===============================
+  - name: rtp_minus_5
+    line_symbol_weights: { S1: 230, S2: 210, S3: 200, S4: 190, S5: 60, S6: 40, S7: 22, S8: 10, B: 5, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.09
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -10%
+  # ===============================
+  - name: rtp_minus_10
+    line_symbol_weights: { S1: 250, S2: 230, S3: 220, S4: 210, S5: 55, S6: 35, S7: 20, S8: 9, B: 4, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.08
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -15%
+  # ===============================
+  - name: rtp_minus_15
+    line_symbol_weights: { S1: 270, S2: 250, S3: 240, S4: 230, S5: 50, S6: 30, S7: 18, S8: 8, B: 4, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.07
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -20%
+  # ===============================
+  - name: rtp_minus_20
+    line_symbol_weights: { S1: 290, S2: 270, S3: 260, S4: 250, S5: 45, S6: 25, S7: 16, S8: 7, B: 3, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.06
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -25%
+  # ===============================
+  - name: rtp_minus_25
+    line_symbol_weights: { S1: 310, S2: 290, S3: 280, S4: 270, S5: 40, S6: 22, S7: 14, S8: 6, B: 3, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.05
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -30%
+  # ===============================
+  - name: rtp_minus_30
+    line_symbol_weights: { S1: 330, S2: 310, S3: 300, S4: 290, S5: 35, S6: 20, S7: 12, S8: 5, B: 2, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.04
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -35%
+  # ===============================
+  - name: rtp_minus_35
+    line_symbol_weights: { S1: 350, S2: 330, S3: 320, S4: 310, S5: 30, S6: 18, S7: 10, S8: 4, B: 2, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.03
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -40%
+  # ===============================
+  - name: rtp_minus_40
+    line_symbol_weights: { S1: 380, S2: 360, S3: 350, S4: 340, S5: 25, S6: 15, S7: 8, S8: 3, B: 2, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.02
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -45%
+  # ===============================
+  - name: rtp_minus_45
+    line_symbol_weights: { S1: 410, S2: 390, S3: 380, S4: 370, S5: 20, S6: 12, S7: 6, S8: 2, B: 1, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.015
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout
+
+  # ===============================
+  # RTP -50%
+  # ===============================
+  - name: rtp_minus_50
+    line_symbol_weights: { S1: 450, S2: 430, S3: 420, S4: 410, S5: 15, S6: 10, S7: 5, S8: 1, B: 1, W: 0 }
+    line_wild_chance_on_reel_2_3_4: 0.01
+    line_free_spins_by_scatter: *free_spins_by_scatter
+    line_payout_table: *payout

@@ -14,16 +14,24 @@ type lineConfig struct {
 	PayTable          map[string]map[int]int `yaml:"line_payout_table"`
 }
 
-func NewLineConfigFromYAML(path string) (config.LineConfig, error) {
+type allLineConfigs struct {
+	Configs []lineConfig `yaml:"configs"`
+}
+
+func NewLineConfigFromYAML(path string) ([]config.LineConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var cfg lineConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	var all allLineConfigs
+	if err := yaml.Unmarshal(data, &all); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	var result []config.LineConfig
+	for _, cfg := range all.Configs {
+		result = append(result, &cfg)
+	}
+	return result, nil
 }
 
 func (cfg *lineConfig) SymbolWeights() map[string]int {

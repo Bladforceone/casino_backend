@@ -1,0 +1,136 @@
+configs:
+  # RTP +50%
+  - name: SugarRush_RTP_150
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_per_column: 0.015
+    cascade_bonus_awards: &cascade_bonus_awards { 3: 10, 4: 12, 5: 15, 6: 20, 7: 30 }
+    cascade_pay_table: &payout { 0: 10, 1: 8, 2: 6, 3: 5, 4: 4, 5: 3, 6: 2 }
+
+  # RTP +45%
+  - name: SugarRush_RTP_145
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_per_column: 0.0145
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP +40%
+  - name: SugarRush_RTP_140
+    cascade_bonus_per_column: 0.014
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP +35%
+  - name: SugarRush_RTP_135
+    cascade_bonus_per_column: 0.0135
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP +30%
+  - name: SugarRush_RTP_130
+    cascade_bonus_per_column: 0.013
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+  # RTP +25%
+  - name: SugarRush_RTP_125
+    cascade_bonus_per_column: 0.0125
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP +20%
+  - name: SugarRush_RTP_120
+    cascade_bonus_per_column: 0.012
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP +15%
+  - name: SugarRush_RTP_115
+    cascade_bonus_per_column: 0.0115
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP +10%
+  - name: SugarRush_RTP_110
+    cascade_bonus_per_column: 0.011
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+  # RTP +5%
+  - name: SugarRush_RTP_105
+    cascade_bonus_per_column: 0.0105
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+  # RTP -5%
+  - name: SugarRush_RTP_95
+    cascade_bonus_per_column: 0.0095
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+  # RTP -10%
+  - name: SugarRush_RTP_90
+    cascade_bonus_per_column: 0.009
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP -15%
+  - name: SugarRush_RTP_85
+    cascade_bonus_per_column: 0.0085
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP -20%
+  - name: SugarRush_RTP_80
+    cascade_bonus_per_column: 0.008
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP -25%
+  - name: SugarRush_RTP_75
+    cascade_bonus_per_column: 0.0075
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP -30%
+  - name: SugarRush_RTP_70
+    cascade_bonus_per_column: 0.007
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP -35%
+  - name: SugarRush_RTP_65
+    cascade_bonus_per_column: 0.0065
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP -40%
+  - name: SugarRush_RTP_60
+    cascade_bonus_per_column: 0.006
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP -45%
+  - name: SugarRush_RTP_55
+    cascade_bonus_per_column: 0.0055
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
+
+  # RTP -50%
+  - name: SugarRush_RTP_50
+    cascade_bonus_per_column: 0.005
+    cascade_symbol_weights: { 0: 8, 1: 9, 2: 10, 3: 12, 4: 14, 5: 16, 6: 17, 7: 1 }
+    cascade_bonus_awards: *cascade_bonus_awards
+    cascade_pay_table: *payout
