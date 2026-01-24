@@ -6,13 +6,13 @@ import (
 )
 
 type LineService interface {
-	Spin(ctx context.Context, userID int, spinReq model.LineSpin) (*model.SpinResult, error)
-	BuyBonus(ctx context.Context, userID int, amount int) error
+	Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinResult, error)
+	BuyBonus(ctx context.Context, amount int) error
 }
 
 type CascadeService interface {
-	Spin(ctx context.Context, userID int, req model.CascadeSpin) (*model.CascadeSpinResult, error)
-	BuyBonus(ctx context.Context, userID int, amount int) error
+	Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeSpinResult, error)
+	BuyBonus(ctx context.Context, amount int) error
 }
 
 type AuthService interface {

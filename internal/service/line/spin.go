@@ -2,6 +2,7 @@ package line
 
 import (
 	"casino_backend/internal/config"
+	"casino_backend/internal/middleware"
 	"casino_backend/internal/model"
 	"context"
 	"errors"
@@ -46,11 +47,16 @@ const (
 )
 
 // Spin выполняет спин с учётом баланса и фриспинов
-func (s *serv) Spin(ctx context.Context, userID int, spinReq model.LineSpin) (*model.SpinResult, error) {
+func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinResult, error) {
 	// Валидация ставки
 	// Если ставка меньше либо равна нулю или не кратна 2-м (т.е. Нечетная) — ошибка
 	if spinReq.Bet <= 0 || spinReq.Bet%2 != 0 {
 		return nil, errors.New("bet must be positive and even")
+	}
+
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("user id not found in context")
 	}
 
 	// Получаем текущий индекс конфига из статистики

@@ -2,6 +2,7 @@ package cascade
 
 import (
 	"casino_backend/internal/config"
+	"casino_backend/internal/middleware"
 	"context"
 	"errors"
 	"math/rand"
@@ -37,11 +38,16 @@ type cluster struct {
 }
 
 // Spin — основной метод
-func (s *serv) Spin(ctx context.Context, userID int, req model.CascadeSpin) (*model.CascadeSpinResult, error) {
+func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeSpinResult, error) {
 	// Валидация ставки
 	// Если ставка меньше либо равна нулю или не кратна 2-м (т.е. Нечетная) — ошибка
 	if req.Bet <= 0 || req.Bet%2 != 0 {
 		return nil, errors.New("bet must be positive and even")
+	}
+
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("user id not found in context")
 	}
 
 	// Проверка баланса и фриспинов

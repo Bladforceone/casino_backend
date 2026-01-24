@@ -1,13 +1,19 @@
 package line
 
 import (
+	"casino_backend/internal/middleware"
 	"context"
 	"errors"
 )
 
 // BuyBonus Купить бонуску
-func (s *serv) BuyBonus(ctx context.Context, userID int, amount int) error {
+func (s *serv) BuyBonus(ctx context.Context, amount int) error {
 	cost := amount
+
+	userID, ok := middleware.UserIDFromContext(ctx)
+	if !ok {
+		return errors.New("user id not found in context")
+	}
 
 	balance, err := s.userRepo.GetBalance(ctx, userID)
 	if err != nil {
