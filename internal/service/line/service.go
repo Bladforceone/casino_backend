@@ -7,16 +7,23 @@ import (
 )
 
 type serv struct {
-	cfg      config.LineConfig
-	repo     repository.LineRepository
-	userRepo repository.UserRepository
+	cfg           []config.LineConfig
+	repo          repository.LineRepository
+	userRepo      repository.UserRepository
+	lineStatsRepo repository.LineStatsRepository
 }
 
-// NewLine Создать новый слот 5x3
-func NewLineService(cfg config.LineConfig, repo repository.LineRepository, userRepo repository.UserRepository) service.LineService {
+// NewLineService Создать новый слот 5x3
+func NewLineService(
+	cfg []config.LineConfig,
+	repo repository.LineRepository,
+	userRepo repository.UserRepository,
+	lineStatsRepo repository.LineStatsRepository,
+) service.LineService {
 	return &serv{
-		cfg:      cfg,
-		repo:     repo,
-		userRepo: userRepo,
+		cfg:           cfg,
+		repo:          repo,
+		userRepo:      userRepo,
+		lineStatsRepo: lineStatsRepo,
 	}
 }

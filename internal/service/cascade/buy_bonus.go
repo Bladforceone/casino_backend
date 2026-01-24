@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-// Купить бонуску
+// BuyBonus Купить бонуску
 func (s *serv) BuyBonus(ctx context.Context, userID int, amount int) error {
 	cost := amount
 

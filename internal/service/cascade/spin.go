@@ -1,6 +1,7 @@
 package cascade
 
 import (
+	"casino_backend/internal/config"
 	"context"
 	"errors"
 	"math/rand"
@@ -37,14 +38,25 @@ type cluster struct {
 
 // Spin — основной метод
 func (s *serv) Spin(ctx context.Context, userID int, req model.CascadeSpin) (*model.CascadeSpinResult, error) {
+	// Валидация ставки
+	// Если ставка меньше либо равна нулю или не кратна 2-м (т.е. Нечетная) — ошибка
 	if req.Bet <= 0 || req.Bet%2 != 0 {
 		return nil, errors.New("bet must be positive and even")
 	}
 
+	// Проверка баланса и фриспинов
 	freeSpins, err := s.cascadeRepo.GetFreeSpinCount(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
+
+	// Получаем текущий индекс конфига из статистики
+	configIndex, err := s.cascadeStatsRepo.GetConfigIndex()
+	if err != nil {
+		return nil, err
+	}
+	// Выбираем конфиг по индексу
+	currentCfg := s.cfg[configIndex]
 
 	isFreeSpin := freeSpins > 0
 	var balance int
@@ -68,7 +80,7 @@ func (s *serv) Spin(ctx context.Context, userID int, req model.CascadeSpin) (*mo
 		}
 	}
 
-	spinRes, err := s.spinOnce(ctx, userID, req.Bet, !isFreeSpin)
+	spinRes, err := s.spinOnce(ctx, userID, req.Bet, !isFreeSpin, currentCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +107,11 @@ func (s *serv) Spin(ctx context.Context, userID int, req model.CascadeSpin) (*mo
 		spinRes.Cascades[i].CascadeIndex = i
 	}
 
+	err = s.cascadeStatsRepo.UpdateStats(spinRes.TotalPayout, req.Bet)
+	if err != nil {
+		return nil, errors.New("failed to update stats")
+	}
+
 	return &model.CascadeSpinResult{
 		InitialBoard:     spinRes.InitialBoard,
 		Board:            spinRes.Board,
@@ -109,7 +126,7 @@ func (s *serv) Spin(ctx context.Context, userID int, req model.CascadeSpin) (*mo
 }
 
 // spinOnce полный спин с каскадами
-func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultipliers bool) (*model.CascadeSpinResult, error) {
+func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultipliers bool, cfg config.CascadeConfig) (*model.CascadeSpinResult, error) {
 	// Инициализация доски
 	var board [rows][cols]int
 	// hits - сколько раз ячейка участвовала в удалении кластера
@@ -132,10 +149,10 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 			return nil, err
 		}
 		// Заполняем доску заново
-		s.fillBoard(&board)
+		s.fillBoard(&board, cfg.BonusProbPerColumn(), cfg.SymbolWeights())
 	} else {
 		// Фриспин — оставляем старые множители, но генерим новую доску
-		s.fillBoard(&board)
+		s.fillBoard(&board, cfg.BonusProbPerColumn(), cfg.SymbolWeights())
 		// ← Важно: множители остаются от прошлого спина!
 	}
 
@@ -143,7 +160,7 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 	initialBoard := board
 
 	// Инициализируем каскады
-	cascades := []model.CascadeStep{}
+	var cascades []model.CascadeStep
 	// Общий выигрыш за спин
 	var totalWin int
 
@@ -157,7 +174,7 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 
 		// Обрабатываем все кластеры на доске (подсчет выигрыша, удаление, обновление множителей)
 		for _, cl := range clusters {
-			win := s.calculateWin(cl, mult, bet)
+			win := s.calculateWin(cl, mult, bet, cfg.PayoutTable())
 			totalWin += win
 			avgMult := s.averageMultiplier(cl, mult)
 
@@ -180,7 +197,7 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 		// Сдвигаем символы вниз и заполняем пустоты
 		s.collapse(&board)
 		intermediateBoard := board // Копия после collapse (upper empty)
-		s.refill(&board)
+		s.refill(&board, cfg.BonusProbPerColumn(), cfg.SymbolWeights())
 
 		// Добавляем новые символы которые упадут на доску
 		step.NewSymbols = []struct {
@@ -208,7 +225,7 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 	scatterCount := s.countScatters(board)
 	awarded := 0
 	if scatterCount >= 3 {
-		if v, ok := s.cascadeConfig.BonusAwards()[scatterCount]; ok {
+		if v, ok := cfg.BonusAwards()[scatterCount]; ok {
 			awarded = v
 
 			currentFS, err := s.cascadeRepo.GetFreeSpinCount(ctx, userID)
@@ -221,7 +238,6 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 			}
 		}
 	}
-
 	totalPayout := s.applyMaxPayout(totalWin, bet)
 
 	return &model.CascadeSpinResult{
@@ -237,13 +253,13 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 //---------- ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ----------
 
 // fillBoard заполняет доску начальными символами
-func (s *serv) fillBoard(board *[rows][cols]int) {
+func (s *serv) fillBoard(board *[rows][cols]int, bonusProbPerColumn float64, weights map[int]int) {
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
-			if rand.Float64() < s.cascadeConfig.BonusProbPerColumn() {
+			if rand.Float64() < bonusProbPerColumn {
 				board[r][c] = symbolBonus
 			} else {
-				board[r][c] = s.randomRegularSymbol()
+				board[r][c] = s.randomRegularSymbol(weights)
 			}
 		}
 	}
@@ -269,14 +285,14 @@ func (s *serv) collapse(board *[rows][cols]int) {
 }
 
 // refill заполняет empty (upper) новыми символами
-func (s *serv) refill(board *[rows][cols]int) {
+func (s *serv) refill(board *[rows][cols]int, bonusProbPerColumn float64, weights map[int]int) {
 	for c := 0; c < cols; c++ {
 		for r := 0; r < rows; r++ {
 			if board[r][c] == emptyCell {
-				if rand.Float64() < s.cascadeConfig.BonusProbPerColumn() {
+				if rand.Float64() < bonusProbPerColumn {
 					board[r][c] = symbolBonus
 				} else {
-					board[r][c] = s.randomRegularSymbol()
+					board[r][c] = s.randomRegularSymbol(weights)
 				}
 			}
 		}
@@ -284,8 +300,8 @@ func (s *serv) refill(board *[rows][cols]int) {
 }
 
 // randomRegularSymbol выбирает случайный обычный символ с учётом весов
-func (s *serv) randomRegularSymbol() int {
-	weights := s.cascadeConfig.SymbolWeights()
+func (s *serv) randomRegularSymbol(weights map[int]int) int {
+
 	total := 0
 	for _, w := range weights {
 		total += w
@@ -342,14 +358,13 @@ func (s *serv) findClusters(board [rows][cols]int) []cluster {
 }
 
 // calculateWin вычисляет выигрыш за кластер
-func (s *serv) calculateWin(cl cluster, mult [rows][cols]int, bet int) int {
+func (s *serv) calculateWin(cl cluster, mult [rows][cols]int, bet int, payTable map[int]int) int {
 	// Защита от пустого кластера (на всякий случай, хотя findClusters фильтрует >=5)
 	length := len(cl.cells)
 	if length == 0 {
 		return 0
 	}
 
-	payTable := s.cascadeConfig.PayoutTable()
 	base, ok := payTable[cl.symbol]
 	if !ok {
 		base = 0 // или можно логгировать ошибку конфигурации

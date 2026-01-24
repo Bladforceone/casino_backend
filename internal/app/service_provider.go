@@ -7,7 +7,9 @@ import (
 	"casino_backend/internal/config/env"
 	"casino_backend/internal/repository"
 	"casino_backend/internal/repository/cascade_repo"
+	"casino_backend/internal/repository/cascade_stats_repo"
 	"casino_backend/internal/repository/line_repo"
+	"casino_backend/internal/repository/line_stats_repo"
 	"casino_backend/internal/service"
 	"casino_backend/internal/service/cascade"
 	"casino_backend/internal/service/line"
@@ -24,19 +26,25 @@ import (
 type ServiceProvider struct {
 	//TXManager
 	txManager trm.Manager
+
 	// Database
 	pgConfig config.PGConfig
 	dbClient *pgxpool.Pool
+
 	// Line bits
-	lineCfg  config.LineConfig
-	lineRepo repository.LineRepository
-	lineServ service.LineService
-	lineHand *lineAPI.Handler
+	lineCfg       []config.LineConfig
+	lineRepo      repository.LineRepository
+	lineStatsRepo repository.LineStatsRepository
+	lineServ      service.LineService // LineService ждет в конструкторе репозиторий пользователей, но его пока нет
+	lineHand      *lineAPI.Handler
+
 	// Cascade bits
-	cascadeCfg  config.CascadeConfig
-	cascadeRepo repository.CascadeRepository
-	cascadeServ service.CascadeService
-	cascadeHand *cascadeAPI.Handler
+	cascadeCfg       []config.CascadeConfig
+	cascadeRepo      repository.CascadeRepository
+	cascadeStatsRepo repository.CascadeStatsRepository
+	cascadeServ      service.CascadeService
+	cascadeHand      *cascadeAPI.Handler
+
 	// Router and HTTP config
 	httpCfg config.HTTPConfig
 	router  chi.Router
@@ -86,7 +94,7 @@ func (sp *ServiceProvider) TXManager(ctx context.Context) trm.Manager {
 	return sp.txManager
 }
 
-func (sp *ServiceProvider) LineCfg() config.LineConfig {
+func (sp *ServiceProvider) LineCfg() []config.LineConfig {
 	if sp.lineCfg == nil {
 		cfg, err := env.NewLineConfigFromYAML("config.yaml")
 		if err != nil {
@@ -95,7 +103,6 @@ func (sp *ServiceProvider) LineCfg() config.LineConfig {
 
 		sp.lineCfg = cfg
 	}
-
 	return sp.lineCfg
 }
 
@@ -106,11 +113,18 @@ func (sp *ServiceProvider) LineRepository(ctx context.Context) repository.LineRe
 	return sp.lineRepo
 }
 
+func (sp *ServiceProvider) LineStatsRepository() repository.LineStatsRepository {
+	if sp.lineStatsRepo == nil {
+		sp.lineStatsRepo = line_stats_repo.NewLineStatsRepository()
+	}
+	return sp.lineStatsRepo
+}
+
 func (sp *ServiceProvider) LineService(ctx context.Context) service.LineService {
 	if sp.lineServ == nil {
-		sp.lineServ = line.NewLineService(sp.LineCfg(), sp.LineRepository(ctx))
+		// Добавить в аргументы репозиторий пользователей, когда он появится
+		sp.lineServ = line.NewLineService(sp.LineCfg(), sp.LineRepository(ctx), nil, sp.LineStatsRepository())
 	}
-
 	return sp.lineServ
 }
 
@@ -123,7 +137,7 @@ func (sp *ServiceProvider) LineHandler(ctx context.Context) *lineAPI.Handler {
 	return sp.lineHand
 }
 
-func (sp *ServiceProvider) CascadeCfg() config.CascadeConfig {
+func (sp *ServiceProvider) CascadeCfg() []config.CascadeConfig {
 	if sp.cascadeCfg == nil {
 		cfg, err := env.NewCascadeConfigFromYAML("config.yaml")
 		if err != nil {
@@ -141,9 +155,16 @@ func (sp *ServiceProvider) CascadeRepository(ctx context.Context) repository.Cas
 	return sp.cascadeRepo
 }
 
+func (sp *ServiceProvider) CascadeStatsRepository() repository.CascadeStatsRepository {
+	if sp.cascadeStatsRepo == nil {
+		sp.cascadeStatsRepo = cascade_stats_repo.NewCascadeStatsRepository()
+	}
+	return sp.cascadeStatsRepo
+}
+
 func (sp *ServiceProvider) CascadeService(ctx context.Context) service.CascadeService {
 	if sp.cascadeServ == nil {
-		sp.cascadeServ = cascade.NewCascadeService(sp.CascadeCfg(), sp.CascadeRepository(ctx))
+		sp.cascadeServ = cascade.NewCascadeService(sp.CascadeCfg(), sp.CascadeRepository(ctx), nil, sp.CascadeStatsRepository())
 	}
 	return sp.cascadeServ
 }

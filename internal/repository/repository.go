@@ -33,3 +33,13 @@ type UserRepository interface {
 	GetBalance(ctx context.Context, id int) (int, error)
 	UpdateBalance(ctx context.Context, id int, amount int) error
 }
+
+type LineStatsRepository interface {
+	GetConfigIndex() (int, error)
+	UpdateStats(totalPayout int, bet int) error
+}
+
+type CascadeStatsRepository interface {
+	GetConfigIndex() (int, error)
+	UpdateStats(totalPayout int, bet int) error
+}

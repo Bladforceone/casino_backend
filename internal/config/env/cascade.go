@@ -14,16 +14,24 @@ type cascadeConfig struct {
 	PayTable          map[int]int `yaml:"cascade_pay_table"`
 }
 
-func NewCascadeConfigFromYAML(path string) (config.CascadeConfig, error) {
+type allCascadeConfigs struct {
+	Configs []cascadeConfig `yaml:"configs"`
+}
+
+func NewCascadeConfigFromYAML(path string) ([]config.CascadeConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var cfg cascadeConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	var ac allCascadeConfigs
+	if err := yaml.Unmarshal(data, &ac); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	var configs []config.CascadeConfig
+	for i := range ac.Configs {
+		configs = append(configs, &ac.Configs[i])
+	}
+	return configs, nil
 }
 
 func (cfg *cascadeConfig) SymbolWeights() map[int]int {

@@ -1,6 +1,7 @@
 package line
 
 import (
+	"casino_backend/internal/config"
 	"casino_backend/internal/model"
 	"context"
 	"errors"
@@ -39,7 +40,7 @@ const (
 	// Линии
 	rows = 3
 	// Стоимость покупки бонуса (x ставки)
-	buyBonusMultiplier = 100
+	//buyBonusMultiplier = 100
 	// Максимальная выплата в кратности ставки
 	maxPayoutMultiplier = 10000
 )
@@ -47,10 +48,18 @@ const (
 // Spin выполняет спин с учётом баланса и фриспинов
 func (s *serv) Spin(ctx context.Context, userID int, spinReq model.LineSpin) (*model.SpinResult, error) {
 	// Валидация ставки
-	// Если ставка меньше либо равна нулю или не кратна 2-м (т.е. нечетная) — ошибка
+	// Если ставка меньше либо равна нулю или не кратна 2-м (т.е. Нечетная) — ошибка
 	if spinReq.Bet <= 0 || spinReq.Bet%2 != 0 {
 		return nil, errors.New("bet must be positive and even")
 	}
+
+	// Получаем текущий индекс конфига из статистики
+	configIndex, err := s.lineStatsRepo.GetConfigIndex()
+	if err != nil {
+		return nil, errors.New("failed to get config index")
+	}
+	// Выбираем конфиг по индексу
+	currentCfg := s.cfg[configIndex]
 
 	// Получаем текущее количество фриспинов
 	countFreeSpins, err := s.repo.GetFreeSpinCount(ctx, userID)
@@ -84,7 +93,7 @@ func (s *serv) Spin(ctx context.Context, userID int, spinReq model.LineSpin) (*m
 	}
 
 	// делаем спин
-	res, err = s.SpinOnce(ctx, userID, spinReq)
+	res, err = s.SpinOnce(ctx, userID, spinReq, currentCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +133,11 @@ func (s *serv) Spin(ctx context.Context, userID int, spinReq model.LineSpin) (*m
 		return nil, errors.New("failed to get count free spins")
 	}
 
+	err = s.lineStatsRepo.UpdateStats(res.TotalPayout, spinReq.Bet)
+	if err != nil {
+		return nil, errors.New("failed to update stats")
+	}
+
 	return &model.SpinResult{
 		Board:            res.Board,
 		LineWins:         res.LineWins,
@@ -138,13 +152,13 @@ func (s *serv) Spin(ctx context.Context, userID int, spinReq model.LineSpin) (*m
 }
 
 // SpinOnce выполняет один спин (возвращает единый SpinResult)
-func (s *serv) SpinOnce(ctx context.Context, userID int, spinReq model.LineSpin) (*model.SpinResult, error) {
+func (s *serv) SpinOnce(ctx context.Context, userID int, spinReq model.LineSpin, cfg config.LineConfig) (*model.SpinResult, error) {
 	countFreeSpins, err := s.repo.GetFreeSpinCount(ctx, userID)
 	if err != nil {
 		return nil, errors.New("failed to get count free spins")
 	}
 
-	board, err := s.GenerateBoard(countFreeSpins)
+	board, err := s.GenerateBoard(countFreeSpins, cfg.WildChance(), cfg.SymbolWeights())
 	if err != nil {
 		return nil, err
 	}
@@ -162,13 +176,13 @@ func (s *serv) SpinOnce(ctx context.Context, userID int, spinReq model.LineSpin)
 	// scatter payout
 	var scatterPayout int
 	if scatters > 0 {
-		if val, ok := s.cfg.PayoutTable()["B"][scatters]; ok {
+		if val, ok := cfg.PayoutTable()["B"][scatters]; ok {
 			scatterPayout = val * spinReq.Bet / 100
 		}
 	}
 
 	// line wins
-	lineWins := s.EvaluateLines(board, spinReq)
+	lineWins := s.EvaluateLines(board, spinReq, cfg.PayoutTable())
 	var lineTotal int
 	for _, w := range lineWins {
 		lineTotal += w.Payout
@@ -178,7 +192,7 @@ func (s *serv) SpinOnce(ctx context.Context, userID int, spinReq model.LineSpin)
 
 	awarded := 0
 	if scatters >= 3 {
-		if v, ok := s.cfg.FreeSpinsByScatter()[scatters]; ok {
+		if v, ok := cfg.FreeSpinsByScatter()[scatters]; ok {
 			awarded = v
 		}
 	}
@@ -195,7 +209,7 @@ func (s *serv) SpinOnce(ctx context.Context, userID int, spinReq model.LineSpin)
 }
 
 // GenerateBoard генерирует игровое поле матрицы 5x3
-func (s *serv) GenerateBoard(countFreeSpins int) ([5][3]string, error) {
+func (s *serv) GenerateBoard(countFreeSpins int, wildChance float64, symbolWeights map[string]int) ([5][3]string, error) {
 	var board [5][3]string
 
 	// Добавляем вайлды только на центральные 3 барабана (индексы 1,2,3)
@@ -206,24 +220,22 @@ func (s *serv) GenerateBoard(countFreeSpins int) ([5][3]string, error) {
 		wildReels[guaranteedReel] = true
 		// Остальные два барабана могут тоже стать Wild с шансом 6%
 		for reel := 1; reel <= 3; reel++ {
-			if reel != guaranteedReel && rand.Float64() < s.cfg.WildChance() {
+			if reel != guaranteedReel && rand.Float64() < wildChance {
 				wildReels[reel] = true
 			}
 		}
 	} else { // Обычная игра — обычный шанс 6% на каждый центральный барабан
 		for reel := 1; reel <= 3; reel++ {
-			if rand.Float64() < s.cfg.WildChance() {
+			if rand.Float64() < wildChance {
 				wildReels[reel] = true
 			}
 		}
 	}
 
-	// Заполняем остальное случайными символами
-	symbolWeights := s.cfg.SymbolWeights()
-
 	// Отслеживаем, уже выпал ли скаттер на этом барабане
 	hasScatter := make([]bool, reels) // false по умолчанию
 
+	// Заполняем остальное случайными символами
 	for r := 0; r < reels; r++ {
 		for row := 0; row < rows; row++ {
 			if wildReels[r] {
@@ -252,7 +264,7 @@ func (s *serv) GenerateBoard(countFreeSpins int) ([5][3]string, error) {
 }
 
 // EvaluateLines выполняет оценку выигрышных линий
-func (s *serv) EvaluateLines(board [5][3]string, spinReq model.LineSpin) []model.LineWin {
+func (s *serv) EvaluateLines(board [5][3]string, spinReq model.LineSpin, payoutTable map[string]map[int]int) []model.LineWin {
 	var wins []model.LineWin
 	for i, line := range playLines {
 		symbols := make([]string, reels)
@@ -289,14 +301,14 @@ func (s *serv) EvaluateLines(board [5][3]string, spinReq model.LineSpin) []model
 
 		// Определяем минимальное количество символов для выплаты
 		minCount := 3
-		for c := range s.cfg.PayoutTable()[base] {
+		for c := range payoutTable[base] {
 			if c < minCount {
 				minCount = c // обновится до 2 для S8
 			}
 		}
 
 		if count >= minCount {
-			if payTable, ok := s.cfg.PayoutTable()[base]; ok {
+			if payTable, ok := payoutTable[base]; ok {
 				if val, ok := payTable[count]; ok {
 					win := model.LineWin{
 						Line:   i + 1,

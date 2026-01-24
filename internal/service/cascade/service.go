@@ -7,16 +7,23 @@ import (
 )
 
 type serv struct {
-	cascadeConfig config.CascadeConfig
-	cascadeRepo   repository.CascadeRepository
-	userRepo      repository.UserRepository
+	cfg              []config.CascadeConfig
+	cascadeRepo      repository.CascadeRepository
+	userRepo         repository.UserRepository
+	cascadeStatsRepo repository.CascadeStatsRepository
 }
 
-// NewCascade Создать новый cascade
-func NewCascadeService(cfg config.CascadeConfig, repo repository.CascadeRepository, userRepo repository.UserRepository) service.CascadeService {
+// NewCascadeService Создать новый cascade
+func NewCascadeService(
+	cfg []config.CascadeConfig,
+	repo repository.CascadeRepository,
+	userRepo repository.UserRepository,
+	cascadeStatsRepo repository.CascadeStatsRepository,
+) service.CascadeService {
 	return &serv{
-		cascadeConfig: cfg,
-		cascadeRepo:   repo,
-		userRepo:      userRepo,
+		cfg:              cfg,
+		cascadeRepo:      repo,
+		userRepo:         userRepo,
+		cascadeStatsRepo: cascadeStatsRepo,
 	}
 }
