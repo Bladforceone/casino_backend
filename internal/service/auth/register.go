@@ -52,7 +52,8 @@ func (s *serv) Register(ctx context.Context, user *model.User) (*model.AuthData,
 
 		// 5. Создать access токен
 		accessToken, err = token.GenerateAccessToken(
-			user,
+			user.ID,
+			sessionID,
 			s.jwtConfig.AccessTokenSecretKey(),
 			s.jwtConfig.AccessTokenDuration())
 		if err != nil {

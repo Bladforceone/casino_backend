@@ -22,6 +22,7 @@ type CascadeRepository interface {
 type AuthRepository interface {
 	CreateSession(ctx context.Context, session *model.Session) error
 	GetRefreshTokenBySessionID(ctx context.Context, sessionID string) (refreshToken string, err error)
+	GetUserIDBySessionID(ctx context.Context, sessionID string) (userID int, err error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	GetUserBySessionID(ctx context.Context, sessionID string) (*model.User, error)
 }

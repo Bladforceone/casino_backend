@@ -44,7 +44,8 @@ func (s *serv) Login(ctx context.Context, user *model.User) (*model.AuthData, er
 
 	// Создать access токен
 	accessToken, err := token.GenerateAccessToken(
-		user,
+		user.ID,
+		sessionID,
 		s.jwtConfig.AccessTokenSecretKey(),
 		s.jwtConfig.AccessTokenDuration())
 	if err != nil {

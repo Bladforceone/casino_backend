@@ -27,7 +27,8 @@ func (s *serv) Refresh(ctx context.Context, data *model.AuthData) (newAccessToke
 
 	// Генерация нового access токена
 	newAccessToken, err = token.GenerateAccessToken(
-		user,
+		user.ID,
+		data.SessionID,
 		s.jwtConfig.AccessTokenSecretKey(),
 		s.jwtConfig.AccessTokenDuration())
 	if err != nil {

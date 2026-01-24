@@ -4,41 +4,44 @@ import (
 	"casino_backend/internal/model"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateAccessToken(info *model.User, secretKey []byte, ttl time.Duration) (string, error) {
+func GenerateAccessToken(userID int, sessionID string, secretKey []byte, ttl time.Duration) (string, error) {
 	claims := model.UserClaims{
+		UserID:    userID,
+		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        strconv.Itoa(info.ID),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
 	return token.SignedString(secretKey)
 }
 
-func VerifyToken(tokenStr string, secretKey []byte) (*model.UserClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &model.UserClaims{}, func(token *jwt.Token) (interface{}, error) {
-		_, ok := token.Method.(*jwt.SigningMethodHMAC)
-		if !ok {
-			return nil, errors.New("unexpected token signing method")
-		}
+func VerifyAccessToken(tokenStr string, secretKey []byte) (*model.UserClaims, error) {
+	claims := &model.UserClaims{}
 
-		return secretKey, nil
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenStr,
+		claims,
+		func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.New("unexpected signing method")
+			}
+			return secretKey, nil
+		},
+	)
 	if err != nil {
-		return nil, fmt.Errorf("invalid token: %v", err)
+		return nil, fmt.Errorf("parse token: %w", err)
 	}
 
-	claims, ok := token.Claims.(*model.UserClaims)
-	if !ok {
-		return nil, errors.New("invalid token claims")
+	if !token.Valid {
+		return nil, errors.New("token is not valid")
 	}
 
 	return claims, nil
