@@ -144,8 +144,13 @@ func (sp *ServiceProvider) LineStatsRepository() repository.LineStatsRepository 
 
 func (sp *ServiceProvider) LineService(ctx context.Context) service.LineService {
 	if sp.lineServ == nil {
-		// Добавить в аргументы репозиторий пользователей, когда он появится
-		sp.lineServ = line.NewLineService(sp.LineCfg(), sp.LineRepository(ctx), sp.UserRepo(ctx), sp.LineStatsRepository())
+		sp.lineServ = line.NewLineService(
+			sp.LineCfg(),
+			sp.LineRepository(ctx),
+			sp.UserRepo(ctx),
+			sp.LineStatsRepository(),
+			sp.TXManager(ctx),
+		)
 	}
 	return sp.lineServ
 }
@@ -186,7 +191,13 @@ func (sp *ServiceProvider) CascadeStatsRepository() repository.CascadeStatsRepos
 
 func (sp *ServiceProvider) CascadeService(ctx context.Context) service.CascadeService {
 	if sp.cascadeServ == nil {
-		sp.cascadeServ = cascade.NewCascadeService(sp.CascadeCfg(), sp.CascadeRepository(ctx), sp.UserRepo(ctx), sp.CascadeStatsRepository())
+		sp.cascadeServ = cascade.NewCascadeService(
+			sp.CascadeCfg(),
+			sp.CascadeRepository(ctx),
+			sp.UserRepo(ctx),
+			sp.CascadeStatsRepository(),
+			sp.TXManager(ctx),
+		)
 	}
 	return sp.cascadeServ
 }
