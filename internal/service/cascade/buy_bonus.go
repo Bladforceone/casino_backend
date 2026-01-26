@@ -15,25 +15,33 @@ func (s *serv) BuyBonus(ctx context.Context, amount int) error {
 		return errors.New("user id not found in context")
 	}
 
-	balance, err := s.userRepo.GetBalance(ctx, userID)
+	// Начало транзакции
+	err := s.txManager.Do(ctx, func(txCtx context.Context) error {
+		balance, err := s.userRepo.GetBalance(txCtx, userID)
+		if err != nil {
+			return errors.New("failed to get user balance")
+		}
+		if balance < cost {
+			return errors.New("not enough balance for bonus buy")
+		}
+		err = s.userRepo.UpdateBalance(txCtx, userID, balance-cost)
+		if err != nil {
+			return errors.New("failed to update balance after bonus buy")
+		}
+
+		if err := s.cascadeRepo.ResetMultiplierState(txCtx, userID); err != nil {
+			return errors.New("failed to reset mult state")
+		}
+
+		err = s.cascadeRepo.UpdateFreeSpinCount(txCtx, userID, 10)
+		if err != nil {
+			return errors.New("failed to update free spin count after bonus buy")
+		}
+		return nil
+	})
 	if err != nil {
-		return errors.New("failed to get user balance")
-	}
-	if balance < cost {
-		return errors.New("not enough balance for bonus buy")
-	}
-	err = s.userRepo.UpdateBalance(ctx, userID, balance-cost)
-	if err != nil {
-		return errors.New("failed to update balance after bonus buy")
+		return err
 	}
 
-	if err := s.cascadeRepo.ResetMultiplierState(ctx, userID); err != nil {
-		return errors.New("failed to reset mult state")
-	}
-
-	err = s.cascadeRepo.UpdateFreeSpinCount(ctx, userID, 10)
-	if err != nil {
-		return errors.New("failed to update free spin count after bonus buy")
-	}
 	return nil
 }

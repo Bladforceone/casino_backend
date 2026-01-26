@@ -59,7 +59,7 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 		return nil, errors.New("user id not found in context")
 	}
 
-	// Получаем текущий индекс конфига из статистики
+	// Получаем текущий индекс конфига из статистики (вне транзакции)
 	configIndex, err := s.lineStatsRepo.GetConfigIndex()
 	if err != nil {
 		return nil, errors.New("failed to get config index")
@@ -67,103 +67,103 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 	// Выбираем конфиг по индексу
 	currentCfg := s.cfg[configIndex]
 
-	// Получаем текущее количество фриспинов
-	countFreeSpins, err := s.repo.GetFreeSpinCount(ctx, userID)
-	if err != nil {
-		return nil, errors.New("failed to get count free spins")
-	}
-	// Инициализируем результат (чтобы безопасно устанавливать InFreeSpin)
 	var res *model.SpinResult
 
-	// платный или фриспин?
-	if countFreeSpins == 0 {
-		userBalance, err := s.userRepo.GetBalance(ctx, userID)
+	// Начало транзакции
+	err = s.txManager.Do(ctx, func(txCtx context.Context) error {
+		// Получаем текущее количество фриспинов внутри транзакции
+		countFreeSpins, err := s.repo.GetFreeSpinCount(txCtx, userID)
 		if err != nil {
-			return nil, errors.New("failed to get user balance")
-		}
-		if userBalance < spinReq.Bet {
-			return res, errors.New("not enough balance")
+			return errors.New("failed to get count free spins")
 		}
 
-		// Списание должно быть атомарным! Здесь просто пример — в реале делайте в транзакции.
-		userBalance -= spinReq.Bet
-		if err := s.userRepo.UpdateBalance(ctx, userID, userBalance); err != nil {
-			return nil, errors.New("failed to update user balance")
-		}
-	} else {
-		// фриспин — уменьшить счётчик сразу
-		res = &model.SpinResult{InFreeSpin: true}
-		if err := s.repo.UpdateFreeSpinCount(ctx, userID, countFreeSpins-1); err != nil {
-			return nil, errors.New("failed to update count free spins")
-		}
-	}
+		var userBalance int // Локальная переменная для баланса
 
-	// делаем спин
-	res, err = s.SpinOnce(ctx, userID, spinReq, currentCfg)
+		if countFreeSpins == 0 {
+			// Платный спин
+			userBalance, err = s.userRepo.GetBalance(txCtx, userID)
+			if err != nil {
+				return errors.New("failed to get user balance")
+			}
+			if userBalance < spinReq.Bet {
+				return errors.New("not enough balance")
+			}
+
+			// Списание ставки
+			userBalance -= spinReq.Bet
+			if err := s.userRepo.UpdateBalance(txCtx, userID, userBalance); err != nil {
+				return errors.New("failed to update user balance")
+			}
+		} else {
+			// Фриспин — уменьшить счётчик
+			if err := s.repo.UpdateFreeSpinCount(txCtx, userID, countFreeSpins-1); err != nil {
+				return errors.New("failed to update count free spins")
+			}
+			// Получаем баланс для последующего начисления
+			userBalance, err = s.userRepo.GetBalance(txCtx, userID)
+			if err != nil {
+				return errors.New("failed to get user balance")
+			}
+		}
+
+		// Делаем спин (передаём countFreeSpins как параметр)
+		res, err = s.SpinOnce(spinReq, currentCfg, countFreeSpins)
+		if err != nil {
+			return err
+		}
+
+		// Устанавливаем флаг InFreeSpin, если это был фриспин
+		if countFreeSpins > 0 {
+			res.InFreeSpin = true
+		}
+
+		// Начисление выигрыша
+		userBalance += res.TotalPayout
+		if err := s.userRepo.UpdateBalance(txCtx, userID, userBalance); err != nil {
+			return errors.New("failed to update user balance")
+		}
+
+		// Если есть выигранные фриспины, добавляем их
+		if res.AwardedFreeSpins > 0 {
+			// Получаем текущее количество фриспинов (после возможного уменьшения)
+			currentFree, err := s.repo.GetFreeSpinCount(txCtx, userID)
+			if err != nil {
+				return errors.New("failed to get count free spins")
+			}
+			// Прибавляем новые спины
+			if err := s.repo.UpdateFreeSpinCount(txCtx, userID, currentFree+res.AwardedFreeSpins); err != nil {
+				return errors.New("failed to update count free spins")
+			}
+			// Обновляем то, что увидит клиент
+			res.FreeSpinCount = currentFree + res.AwardedFreeSpins
+		}
+
+		// Получаем финальное количество фриспинов для возврата
+		freeCount, err := s.repo.GetFreeSpinCount(txCtx, userID)
+		if err != nil {
+			return errors.New("failed to get count free spins")
+		}
+
+		// Устанавливаем финальные значения в res
+		res.Balance = userBalance
+		res.FreeSpinCount = freeCount // Финальное значение (перезапишет, если было awarded)
+
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Если это был фриспин, сохраняем флаг
-	if countFreeSpins > 0 {
-		res.InFreeSpin = true
-	}
-
-	// обновляем баланс
-	balance, err := s.userRepo.GetBalance(ctx, userID)
-	if err != nil {
-		return nil, errors.New("failed to get user balance")
-	}
-	balance += res.TotalPayout
-
-	err = s.userRepo.UpdateBalance(ctx, userID, balance)
-	if err != nil {
-		return nil, errors.New("failed to update user balance")
-	}
-
-	// Если есть выигранные фриспины, добавляем их
-	if res.AwardedFreeSpins > 0 {
-		// Прибавляем новые спины к текущим
-		currentFree, err := s.repo.GetFreeSpinCount(ctx, userID)
-		if err == nil {
-			_ = s.repo.UpdateFreeSpinCount(ctx, userID, currentFree+res.AwardedFreeSpins)
-		}
-
-		// Обновляем то, что увидит клиент (чтобы сразу показать +15 спинов и т.д.)
-		res.FreeSpinCount = currentFree + res.AwardedFreeSpins
-	}
-
-	// Обновляем индекс свободных спинов в возвращаемом результате (актуально)
-	freeCount, err := s.repo.GetFreeSpinCount(ctx, userID)
-	if err != nil {
-		return nil, errors.New("failed to get count free spins")
-	}
-
+	// Обновляем статистику
 	err = s.lineStatsRepo.UpdateStats(res.TotalPayout, spinReq.Bet)
 	if err != nil {
 		return nil, errors.New("failed to update stats")
 	}
-
-	return &model.SpinResult{
-		Board:            res.Board,
-		LineWins:         res.LineWins,
-		ScatterCount:     res.ScatterCount,
-		ScatterPayout:    res.ScatterPayout,
-		AwardedFreeSpins: res.AwardedFreeSpins,
-		TotalPayout:      res.TotalPayout,
-		Balance:          balance,
-		FreeSpinCount:    freeCount,
-		InFreeSpin:       res.InFreeSpin,
-	}, nil
+	return res, nil
 }
 
 // SpinOnce выполняет один спин (возвращает единый SpinResult)
-func (s *serv) SpinOnce(ctx context.Context, userID int, spinReq model.LineSpin, cfg config.LineConfig) (*model.SpinResult, error) {
-	countFreeSpins, err := s.repo.GetFreeSpinCount(ctx, userID)
-	if err != nil {
-		return nil, errors.New("failed to get count free spins")
-	}
-
+func (s *serv) SpinOnce(spinReq model.LineSpin, cfg config.LineConfig, countFreeSpins int) (*model.SpinResult, error) {
 	board, err := s.GenerateBoard(countFreeSpins, cfg.WildChance(), cfg.SymbolWeights())
 	if err != nil {
 		return nil, err
