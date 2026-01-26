@@ -12,3 +12,10 @@ func RegisterRequestToUserModel(req *dto.RegisterRequest) *model.User {
 		Password: req.Password,
 	}
 }
+
+func LoginRequestToUserModel(req *dto.LoginRequest) *model.User {
+	return &model.User{
+		Login:    req.Login,
+		Password: req.Password,
+	}
+}

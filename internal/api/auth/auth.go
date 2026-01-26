@@ -65,10 +65,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	data, err := h.serv.Login(
 		r.Context(),
-		&model.User{ // TODO вынести в конвертер
-			Login:    requestBody.Login,
-			Password: requestBody.Password,
-		},
+		converter.LoginRequestToUserModel(&requestBody),
 	)
 	if err != nil {
 		log.Println("Login error:", err)
@@ -115,9 +112,9 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setRefreshTokenCookie(w, accessToken)
-
-	w.WriteHeader(http.StatusOK)
+	resp.WriteJSONResponse(w, http.StatusCreated, map[string]interface{}{
+		"access_token": accessToken,
+	})
 }
 
 // Logout закрывает сессию по session_id.
