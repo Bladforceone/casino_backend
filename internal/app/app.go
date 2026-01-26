@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"log"
 	"net/http"
 )
@@ -20,7 +21,8 @@ func (s *App) initServiceProvider() {
 func (s *App) Run() error {
 	s.initServiceProvider()
 
-	r := s.ServiceProvider.Router()
+	ctx := context.Background()
+	r := s.ServiceProvider.Router(ctx)
 
 	log.Printf("starting server at %s", s.ServiceProvider.HTTPCfg().Address())
 	err := http.ListenAndServe(s.ServiceProvider.HTTPCfg().Address(), r)

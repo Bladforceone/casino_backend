@@ -45,34 +45,10 @@ func (h *Handler) BuyBonus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.serv.BuyBonus(payload.Amount); err != nil {
+	if err := h.serv.BuyBonus(r.Context(), payload.Amount); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	resp.WriteJSONResponse(w, http.StatusOK, map[string]string{"result": "ok"})
-}
-
-func (h *Handler) Deposit(w http.ResponseWriter, r *http.Request) {
-	payload, err := req.Decode[dto.BuyCascadeBonusRequest](r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := h.serv.Deposit(payload.Amount); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	resp.WriteJSONResponse(w, http.StatusOK, map[string]string{"result": "ok"})
-}
-
-func (h *Handler) CheckData(w http.ResponseWriter, _ *http.Request) {
-	data, err := h.serv.CheckData()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	response := converter.ToCascadeDataResponse(*data)
-	resp.WriteJSONResponse(w, http.StatusOK, response)
 }

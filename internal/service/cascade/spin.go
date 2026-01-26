@@ -50,13 +50,7 @@ func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeS
 		return nil, errors.New("user id not found in context")
 	}
 
-	// Проверка баланса и фриспинов
-	freeSpins, err := s.cascadeRepo.GetFreeSpinCount(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Получаем текущий индекс конфига из статистики
+	// Получаем текущий индекс конфига из статистики (вне транзакции)
 	configIndex, err := s.cascadeStatsRepo.GetConfigIndex()
 	if err != nil {
 		return nil, err
@@ -64,55 +58,79 @@ func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeS
 	// Выбираем конфиг по индексу
 	currentCfg := s.cfg[configIndex]
 
-	isFreeSpin := freeSpins > 0
-	var balance int
+	var spinRes *model.CascadeSpinResult
+	var finalFreeSpins int
 
-	if !isFreeSpin {
-		balance, err = s.userRepo.GetBalance(ctx, userID)
+	// Начало транзакции
+	err = s.txManager.Do(ctx, func(txCtx context.Context) error {
+		// Проверка баланса и фриспинов внутри транзакции
+		freeSpins, err := s.cascadeRepo.GetFreeSpinCount(txCtx, userID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if balance < req.Bet {
-			return nil, errors.New("not enough balance")
-		}
-		balance -= req.Bet
-		if err := s.userRepo.UpdateBalance(ctx, userID, balance); err != nil {
-			return nil, err
-		}
-	} else {
-		freeSpins--
-		if err := s.cascadeRepo.UpdateFreeSpinCount(ctx, userID, freeSpins); err != nil {
-			return nil, err
-		}
-	}
 
-	spinRes, err := s.spinOnce(ctx, userID, req.Bet, !isFreeSpin, currentCfg)
+		isFreeSpin := freeSpins > 0
+		var userBalance int
+
+		if !isFreeSpin {
+			userBalance, err = s.userRepo.GetBalance(txCtx, userID)
+			if err != nil {
+				return err
+			}
+			if userBalance < req.Bet {
+				return errors.New("not enough balance")
+			}
+			userBalance -= req.Bet
+			if err := s.userRepo.UpdateBalance(txCtx, userID, userBalance); err != nil {
+				return err
+			}
+		} else {
+			freeSpins--
+			if err := s.cascadeRepo.UpdateFreeSpinCount(txCtx, userID, freeSpins); err != nil {
+				return err
+			}
+			// Получаем баланс для последующего начисления
+			userBalance, err = s.userRepo.GetBalance(txCtx, userID)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Выполняем спин (с txCtx)
+		spinRes, err = s.spinOnce(txCtx, userID, req.Bet, !isFreeSpin, currentCfg)
+		if err != nil {
+			return err
+		}
+
+		// Начисление выигрыша
+		userBalance += spinRes.TotalPayout
+		if err := s.userRepo.UpdateBalance(txCtx, userID, userBalance); err != nil {
+			return err
+		}
+
+		// Начисление фриспинов — уже сделано внутри spinOnce → просто читаем результат
+		finalFreeSpins, err = s.cascadeRepo.GetFreeSpinCount(txCtx, userID)
+		if err != nil {
+			return err
+		}
+		spinRes.FreeSpinsLeft = finalFreeSpins
+
+		// Заполняем индексы каскадов (0 = первый)
+		for i := range spinRes.Cascades {
+			spinRes.Cascades[i].CascadeIndex = i
+		}
+
+		// Сохраняем balance для возврата
+		spinRes.Balance = userBalance
+		spinRes.InFreeSpin = isFreeSpin
+
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Начисление выигрыша
-	balance, err = s.userRepo.GetBalance(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	balance += spinRes.TotalPayout
-	if err := s.userRepo.UpdateBalance(ctx, userID, balance); err != nil {
-		return nil, err
-	}
-
-	// Начисление фриспинов — уже сделано внутри spinOnce → просто читаем результат
-	finalFreeSpins, err := s.cascadeRepo.GetFreeSpinCount(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	spinRes.FreeSpinsLeft = finalFreeSpins
-
-	// Заполняем индексы каскадов (0 = первый)
-	for i := range spinRes.Cascades {
-		spinRes.Cascades[i].CascadeIndex = i
-	}
-
+	// Обновляем статистику (вне транзакции)
 	err = s.cascadeStatsRepo.UpdateStats(spinRes.TotalPayout, req.Bet)
 	if err != nil {
 		return nil, errors.New("failed to update stats")
@@ -123,11 +141,11 @@ func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeS
 		Board:            spinRes.Board,
 		Cascades:         spinRes.Cascades,
 		TotalPayout:      spinRes.TotalPayout,
-		Balance:          balance,
+		Balance:          spinRes.Balance,
 		ScatterCount:     spinRes.ScatterCount,
 		AwardedFreeSpins: spinRes.AwardedFreeSpins,
-		FreeSpinsLeft:    spinRes.FreeSpinsLeft,
-		InFreeSpin:       isFreeSpin,
+		FreeSpinsLeft:    finalFreeSpins,
+		InFreeSpin:       spinRes.InFreeSpin,
 	}, nil
 }
 

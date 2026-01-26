@@ -15,23 +15,32 @@ func (s *serv) BuyBonus(ctx context.Context, amount int) error {
 		return errors.New("user id not found in context")
 	}
 
-	balance, err := s.userRepo.GetBalance(ctx, userID)
+	// Начало транзакции
+	err := s.txManager.Do(ctx, func(txCtx context.Context) error {
+		balance, err := s.userRepo.GetBalance(txCtx, userID)
+		if err != nil {
+			return errors.New("failed to get user balance")
+		}
+
+		if balance < cost {
+			return errors.New("not enough balance for bonus buy")
+		}
+
+		err = s.userRepo.UpdateBalance(txCtx, userID, balance-cost)
+		if err != nil {
+			return errors.New("failed to update user balance")
+		}
+
+		err = s.repo.UpdateFreeSpinCount(txCtx, userID, 10)
+		if err != nil {
+			return errors.New("failed to update free spin count")
+		}
+
+		return nil
+	})
 	if err != nil {
-		return errors.New("failed to get user balance")
+		return err
 	}
 
-	if balance < cost {
-		return errors.New("not enough balance for bonus buy")
-	}
-
-	err = s.userRepo.UpdateBalance(ctx, userID, balance-cost)
-	if err != nil {
-		return errors.New("failed to update user balance")
-	}
-
-	err = s.repo.UpdateFreeSpinCount(ctx, userID, 10)
-	if err != nil {
-		return errors.New("failed to update free spin count")
-	}
 	return nil
 }

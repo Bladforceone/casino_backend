@@ -1,10 +1,13 @@
 package app
 
 import (
+	authAPI "casino_backend/internal/api/auth"
 	cascadeAPI "casino_backend/internal/api/cascade"
 	lineAPI "casino_backend/internal/api/line"
+	payAPI "casino_backend/internal/api/pay"
 	"casino_backend/internal/config"
 	"casino_backend/internal/config/env"
+	"casino_backend/internal/middleware"
 	"casino_backend/internal/repository"
 	"casino_backend/internal/repository/auth_repo"
 	"casino_backend/internal/repository/cascade_repo"
@@ -13,8 +16,10 @@ import (
 	"casino_backend/internal/repository/line_stats_repo"
 	"casino_backend/internal/repository/user_repo"
 	"casino_backend/internal/service"
+	"casino_backend/internal/service/auth"
 	"casino_backend/internal/service/cascade"
 	"casino_backend/internal/service/line"
+	payService "casino_backend/internal/service/pay"
 	"context"
 
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
@@ -34,10 +39,18 @@ type ServiceProvider struct {
 	dbClient *pgxpool.Pool
 
 	// Auth bits
-	authRepo repository.AuthRepository
+	jwtConfig config.JWTConfig
+	authRepo  repository.AuthRepository
+	authServ  service.AuthService
+	authHand  *authAPI.Handler
+	authMw    *middleware.AuthMiddleware
 
 	// User bits
 	userRepo repository.UserRepository
+
+	// Payment bits
+	payServ service.PaymentService
+	payHand *payAPI.Handler
 
 	// Line bits
 	lineCfg       []config.LineConfig
@@ -75,7 +88,7 @@ func (sp *ServiceProvider) PgConfig() config.PGConfig {
 
 func (sp *ServiceProvider) DBClient(ctx context.Context) *pgxpool.Pool {
 	if sp.dbClient == nil {
-		dbc, err := pgxpool.New(ctx, sp.pgConfig.DSN())
+		dbc, err := pgxpool.New(ctx, sp.PgConfig().DSN())
 		if err != nil {
 			panic("failed to create db pool: " + err.Error())
 		}
@@ -102,12 +115,72 @@ func (sp *ServiceProvider) UserRepo(ctx context.Context) repository.UserReposito
 	return sp.userRepo
 }
 
+func (sp *ServiceProvider) JWTConfig() config.JWTConfig {
+	if sp.jwtConfig == nil {
+		cfg, err := env.NewJWTConfig()
+		if err != nil {
+			panic("failed to get jwt config: " + err.Error())
+		}
+		sp.jwtConfig = cfg
+	}
+	return sp.jwtConfig
+}
+
+func (sp *ServiceProvider) AuthService(ctx context.Context) service.AuthService {
+	if sp.authServ == nil {
+		sp.authServ = auth.NewService(
+			sp.TXManager(ctx),
+			sp.JWTConfig(),
+			sp.UserRepo(ctx),
+			sp.AuthRepo(ctx),
+		)
+	}
+	return sp.authServ
+}
+
+func (sp *ServiceProvider) AuthHandler(ctx context.Context) *authAPI.Handler {
+	if sp.authHand == nil {
+		sp.authHand = authAPI.NewHandler(authAPI.HandlerDeps{
+			Serv: sp.AuthService(ctx),
+		})
+	}
+	return sp.authHand
+}
+
+func (sp *ServiceProvider) AuthMiddleware(ctx context.Context) *middleware.AuthMiddleware {
+	if sp.authMw == nil {
+		sp.authMw = middleware.NewAuthMiddleware(
+			sp.JWTConfig().AccessTokenSecretKey(),
+			sp.AuthRepo(ctx),
+		)
+	}
+	return sp.authMw
+}
+
+func (sp *ServiceProvider) PaymentService(ctx context.Context) service.PaymentService {
+	if sp.payServ == nil {
+		sp.payServ = payService.NewService(
+			sp.TXManager(ctx),
+			sp.UserRepo(ctx),
+		)
+	}
+	return sp.payServ
+}
+
+func (sp *ServiceProvider) PaymentHandler(ctx context.Context) *payAPI.Handler {
+	if sp.payHand == nil {
+		sp.payHand = payAPI.NewHandler(payAPI.HandlerDeps{
+			Serv: sp.PaymentService(ctx),
+		})
+	}
+	return sp.payHand
+}
+
 func (sp *ServiceProvider) TXManager(ctx context.Context) trm.Manager {
 	if sp.txManager == nil {
 		m, err := manager.New(trmpgx.NewDefaultFactory(sp.DBClient(ctx)))
 		if err != nil {
 			panic("failed to create tx manager: " + err.Error())
-			return nil
 		}
 
 		sp.txManager = m
@@ -144,8 +217,13 @@ func (sp *ServiceProvider) LineStatsRepository() repository.LineStatsRepository 
 
 func (sp *ServiceProvider) LineService(ctx context.Context) service.LineService {
 	if sp.lineServ == nil {
-		// Добавить в аргументы репозиторий пользователей, когда он появится
-		sp.lineServ = line.NewLineService(sp.LineCfg(), sp.LineRepository(ctx), sp.UserRepo(ctx), sp.LineStatsRepository())
+		sp.lineServ = line.NewLineService(
+			sp.LineCfg(),
+			sp.LineRepository(ctx),
+			sp.UserRepo(ctx),
+			sp.LineStatsRepository(),
+			sp.TXManager(ctx),
+		)
 	}
 	return sp.lineServ
 }
@@ -186,7 +264,13 @@ func (sp *ServiceProvider) CascadeStatsRepository() repository.CascadeStatsRepos
 
 func (sp *ServiceProvider) CascadeService(ctx context.Context) service.CascadeService {
 	if sp.cascadeServ == nil {
-		sp.cascadeServ = cascade.NewCascadeService(sp.CascadeCfg(), sp.CascadeRepository(ctx), sp.UserRepo(ctx), sp.CascadeStatsRepository())
+		sp.cascadeServ = cascade.NewCascadeService(
+			sp.CascadeCfg(),
+			sp.CascadeRepository(ctx),
+			sp.UserRepo(ctx),
+			sp.CascadeStatsRepository(),
+			sp.TXManager(ctx),
+		)
 	}
 	return sp.cascadeServ
 }
@@ -224,22 +308,40 @@ func (sp *ServiceProvider) Router(ctx context.Context) chi.Router {
 			MaxAge:           60 * 15,
 		}))
 
-		// Line endpoints
-		lineHandler := sp.LineHandler(ctx)
-		r.Route("/line", func(rr chi.Router) {
-			rr.Post("/spin", lineHandler.Spin)
-			rr.Post("/buy-bonus", lineHandler.BuyBonus)
-			rr.Post("/deposit", lineHandler.Deposit)
-			rr.Get("/check-data", lineHandler.CheckData)
+		// Auth endpoints (public)
+		authHandler := sp.AuthHandler(ctx)
+		r.Route("/auth", func(rr chi.Router) {
+			rr.Post("/register", authHandler.Register)
+			rr.Post("/login", authHandler.Login)
+			rr.Post("/refresh", authHandler.Refresh)
+			rr.Post("/logout", authHandler.Logout)
 		})
 
-		// Cascade endpoints
-		cascadeHandler := sp.CascadeHandler(ctx)
-		r.Route("/cascade", func(rr chi.Router) {
-			rr.Post("/spin", cascadeHandler.Spin)
-			rr.Post("/buy-bonus", cascadeHandler.BuyBonus)
-			rr.Post("/deposit", cascadeHandler.Deposit)
-			rr.Get("/check-data", cascadeHandler.CheckData)
+		// Protected routes (require authentication)
+		authMiddleware := sp.AuthMiddleware(ctx)
+		r.Group(func(rr chi.Router) {
+			rr.Use(authMiddleware.Handle)
+
+			// Payment endpoints
+			payHandler := sp.PaymentHandler(ctx)
+			rr.Route("/pay", func(pr chi.Router) {
+				pr.Post("/deposit", payHandler.Deposit)
+				pr.Get("/balance", payHandler.GetBalance)
+			})
+
+			// Line endpoints
+			lineHandler := sp.LineHandler(ctx)
+			rr.Route("/line", func(lr chi.Router) {
+				lr.Post("/spin", lineHandler.Spin)
+				lr.Post("/buy-bonus", lineHandler.BuyBonus)
+			})
+
+			// Cascade endpoints
+			cascadeHandler := sp.CascadeHandler(ctx)
+			rr.Route("/cascade", func(cr chi.Router) {
+				cr.Post("/spin", cascadeHandler.Spin)
+				cr.Post("/buy-bonus", cascadeHandler.BuyBonus)
+			})
 		})
 
 		sp.router = r

@@ -12,7 +12,7 @@ import (
 )
 
 type HandlerDeps struct {
-	serv service.AuthService
+	Serv service.AuthService
 }
 
 type Handler struct {
@@ -20,7 +20,7 @@ type Handler struct {
 }
 
 func NewHandler(deps HandlerDeps) *Handler {
-	return &Handler{serv: deps.serv}
+	return &Handler{serv: deps.Serv}
 }
 
 // Register создаёт нового пользователя и создаёт сессию.

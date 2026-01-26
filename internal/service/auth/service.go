@@ -19,8 +19,18 @@ type serv struct {
 	authRepo  repository.AuthRepository
 }
 
-func NewService() *serv {
-	return &serv{}
+func NewService(
+	txManager trm.Manager,
+	jwtConfig config.JWTConfig,
+	userRepo repository.UserRepository,
+	authRepo repository.AuthRepository,
+) *serv {
+	return &serv{
+		txManager: txManager,
+		jwtConfig: jwtConfig,
+		userRepo:  userRepo,
+		authRepo:  authRepo,
+	}
 }
 
 func generateSessionID() string {
