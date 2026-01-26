@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	table          = "free_spins_count"
+	table          = "line_game_state"
 	playerId       = "user_id"
 	freeSpinsCount = "free_spins_count"
 )
@@ -90,5 +90,26 @@ func (r *repo) UpdateFreeSpinCount(ctx context.Context, id int, count int) error
 			return err
 		}
 	}
+	return nil
+}
+
+func (r *repo) CreateLineGameState(ctx context.Context, id int) error {
+	// Формируем запрос на вставку, если записи не существует
+	query := sq.Insert(table).
+		Columns(playerId, freeSpinsCount).
+		Values(id, 0).
+		Suffix("ON CONFLICT (" + playerId + ") DO NOTHING").
+		PlaceholderFormat(sq.Dollar)
+
+	sqlStr, args, err := query.ToSql()
+	if err != nil {
+		return err
+	}
+
+	_, err = r.dbc.Exec(ctx, sqlStr, args...)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

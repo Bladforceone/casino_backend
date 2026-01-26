@@ -6,6 +6,7 @@ import (
 	"casino_backend/internal/model"
 	"context"
 	"errors"
+	"log"
 	"math/rand"
 )
 
@@ -64,9 +65,6 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 	if err != nil {
 		return nil, errors.New("failed to get config index")
 	}
-	// Выбираем конфиг по индексу
-	currentCfg := s.cfg[configIndex]
-
 	var res *model.SpinResult
 
 	// Начало транзакции
@@ -74,7 +72,12 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 		// Получаем текущее количество фриспинов внутри транзакции
 		countFreeSpins, err := s.repo.GetFreeSpinCount(txCtx, userID)
 		if err != nil {
-			return errors.New("failed to get count free spins")
+			err = s.repo.CreateLineGameState(ctx, userID)
+			if err != nil {
+				log.Println(err)
+				return errors.New("failed to get count free spins in Line Repo")
+			}
+			countFreeSpins = 0
 		}
 
 		var userBalance int // Локальная переменная для баланса
@@ -107,7 +110,7 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 		}
 
 		// Делаем спин (передаём countFreeSpins как параметр)
-		res, err = s.SpinOnce(spinReq, currentCfg, countFreeSpins)
+		res, err = s.SpinOnce(spinReq, s.cfg, countFreeSpins, configIndex)
 		if err != nil {
 			return err
 		}
@@ -163,8 +166,8 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 }
 
 // SpinOnce выполняет один спин (возвращает единый SpinResult)
-func (s *serv) SpinOnce(spinReq model.LineSpin, cfg config.LineConfig, countFreeSpins int) (*model.SpinResult, error) {
-	board, err := s.GenerateBoard(countFreeSpins, cfg.WildChance(), cfg.SymbolWeights())
+func (s *serv) SpinOnce(spinReq model.LineSpin, cfg config.LineConfig, countFreeSpins int, idx int) (*model.SpinResult, error) {
+	board, err := s.GenerateBoard(countFreeSpins, cfg.WildChance(idx), cfg.SymbolWeights(idx))
 	if err != nil {
 		return nil, err
 	}
@@ -182,13 +185,13 @@ func (s *serv) SpinOnce(spinReq model.LineSpin, cfg config.LineConfig, countFree
 	// scatter payout
 	var scatterPayout int
 	if scatters > 0 {
-		if val, ok := cfg.PayoutTable()["B"][scatters]; ok {
+		if val, ok := cfg.PayoutTable(idx)["B"][scatters]; ok {
 			scatterPayout = val * spinReq.Bet / 100
 		}
 	}
 
 	// line wins
-	lineWins := s.EvaluateLines(board, spinReq, cfg.PayoutTable())
+	lineWins := s.EvaluateLines(board, spinReq, cfg.PayoutTable(idx))
 	var lineTotal int
 	for _, w := range lineWins {
 		lineTotal += w.Payout
@@ -198,7 +201,7 @@ func (s *serv) SpinOnce(spinReq model.LineSpin, cfg config.LineConfig, countFree
 
 	awarded := 0
 	if scatters >= 3 {
-		if v, ok := cfg.FreeSpinsByScatter()[scatters]; ok {
+		if v, ok := cfg.FreeSpinsByScatter(idx)[scatters]; ok {
 			awarded = v
 		}
 	}

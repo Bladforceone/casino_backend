@@ -53,14 +53,14 @@ type ServiceProvider struct {
 	payHand *payAPI.Handler
 
 	// Line bits
-	lineCfg       []config.LineConfig
+	lineCfg       config.LineConfig
 	lineRepo      repository.LineRepository
 	lineStatsRepo repository.LineStatsRepository
 	lineServ      service.LineService // LineService ждет в конструкторе репозиторий пользователей, но его пока нет
 	lineHand      *lineAPI.Handler
 
 	// Cascade bits
-	cascadeCfg       []config.CascadeConfig
+	cascadeCfg       config.CascadeConfig
 	cascadeRepo      repository.CascadeRepository
 	cascadeStatsRepo repository.CascadeStatsRepository
 	cascadeServ      service.CascadeService
@@ -189,9 +189,9 @@ func (sp *ServiceProvider) TXManager(ctx context.Context) trm.Manager {
 	return sp.txManager
 }
 
-func (sp *ServiceProvider) LineCfg() []config.LineConfig {
+func (sp *ServiceProvider) LineCfg() config.LineConfig {
 	if sp.lineCfg == nil {
-		cfg, err := env.NewLineConfigFromYAML("config.yaml")
+		cfg, err := env.NewLineConfigFromYAML("config-line.yaml")
 		if err != nil {
 			panic("failed to get line config: " + err.Error())
 		}
@@ -237,9 +237,9 @@ func (sp *ServiceProvider) LineHandler(ctx context.Context) *lineAPI.Handler {
 	return sp.lineHand
 }
 
-func (sp *ServiceProvider) CascadeCfg() []config.CascadeConfig {
+func (sp *ServiceProvider) CascadeCfg() config.CascadeConfig {
 	if sp.cascadeCfg == nil {
-		cfg, err := env.NewCascadeConfigFromYAML("config.yaml")
+		cfg, err := env.NewCascadeConfigFromYAML("config-cascade.yaml")
 		if err != nil {
 			panic("failed to get cascade config: " + err.Error())
 		}

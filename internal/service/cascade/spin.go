@@ -5,6 +5,7 @@ import (
 	"casino_backend/internal/middleware"
 	"context"
 	"errors"
+	"log"
 	"math/rand"
 
 	"casino_backend/internal/model"
@@ -55,8 +56,6 @@ func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeS
 	if err != nil {
 		return nil, err
 	}
-	// Выбираем конфиг по индексу
-	currentCfg := s.cfg[configIndex]
 
 	var spinRes *model.CascadeSpinResult
 	var finalFreeSpins int
@@ -66,7 +65,12 @@ func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeS
 		// Проверка баланса и фриспинов внутри транзакции
 		freeSpins, err := s.cascadeRepo.GetFreeSpinCount(txCtx, userID)
 		if err != nil {
-			return err
+			err = s.cascadeRepo.CreateCascadeGameState(ctx, userID)
+			if err != nil {
+				log.Println(err)
+				return errors.New("failed to get count free spins in Cascade Repo")
+
+			}
 		}
 
 		isFreeSpin := freeSpins > 0
@@ -97,7 +101,7 @@ func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeS
 		}
 
 		// Выполняем спин (с txCtx)
-		spinRes, err = s.spinOnce(txCtx, userID, req.Bet, !isFreeSpin, currentCfg)
+		spinRes, err = s.spinOnce(txCtx, userID, req.Bet, !isFreeSpin, s.cfg, configIndex)
 		if err != nil {
 			return err
 		}
@@ -150,7 +154,7 @@ func (s *serv) Spin(ctx context.Context, req model.CascadeSpin) (*model.CascadeS
 }
 
 // spinOnce полный спин с каскадами
-func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultipliers bool, cfg config.CascadeConfig) (*model.CascadeSpinResult, error) {
+func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultipliers bool, cfg config.CascadeConfig, configIndex int) (*model.CascadeSpinResult, error) {
 	// Инициализация доски
 	var board [rows][cols]int
 	// hits - сколько раз ячейка участвовала в удалении кластера
@@ -173,10 +177,10 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 			return nil, err
 		}
 		// Заполняем доску заново
-		s.fillBoard(&board, cfg.BonusProbPerColumn(), cfg.SymbolWeights())
+		s.fillBoard(&board, cfg.BonusProbPerColumn(configIndex), cfg.SymbolWeights(configIndex))
 	} else {
 		// Фриспин — оставляем старые множители, но генерим новую доску
-		s.fillBoard(&board, cfg.BonusProbPerColumn(), cfg.SymbolWeights())
+		s.fillBoard(&board, cfg.BonusProbPerColumn(configIndex), cfg.SymbolWeights(configIndex))
 		// ← Важно: множители остаются от прошлого спина!
 	}
 
@@ -198,7 +202,7 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 
 		// Обрабатываем все кластеры на доске (подсчет выигрыша, удаление, обновление множителей)
 		for _, cl := range clusters {
-			win := s.calculateWin(cl, mult, bet, cfg.PayoutTable())
+			win := s.calculateWin(cl, mult, bet, cfg.PayoutTable(configIndex))
 			totalWin += win
 			avgMult := s.averageMultiplier(cl, mult)
 
@@ -221,7 +225,7 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 		// Сдвигаем символы вниз и заполняем пустоты
 		s.collapse(&board)
 		intermediateBoard := board // Копия после collapse (upper empty)
-		s.refill(&board, cfg.BonusProbPerColumn(), cfg.SymbolWeights())
+		s.refill(&board, cfg.BonusProbPerColumn(configIndex), cfg.SymbolWeights(configIndex))
 
 		// Добавляем новые символы которые упадут на доску
 		step.NewSymbols = []struct {
@@ -249,7 +253,7 @@ func (s *serv) spinOnce(ctx context.Context, userID int, bet int, resetMultiplie
 	scatterCount := s.countScatters(board)
 	awarded := 0
 	if scatterCount >= 3 {
-		if v, ok := cfg.BonusAwards()[scatterCount]; ok {
+		if v, ok := cfg.BonusAwards(configIndex)[scatterCount]; ok {
 			awarded = v
 
 			currentFS, err := s.cascadeRepo.GetFreeSpinCount(ctx, userID)

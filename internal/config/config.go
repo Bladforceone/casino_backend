@@ -15,17 +15,17 @@ func Load(path string) error {
 }
 
 type LineConfig interface {
-	SymbolWeights() map[string]int
-	WildChance() float64
-	FreeSpinsByScatter() map[int]int
-	PayoutTable() map[string]map[int]int
+	SymbolWeights(idx int) map[string]int
+	WildChance(idx int) float64
+	FreeSpinsByScatter(idx int) map[int]int
+	PayoutTable(idx int) map[string]map[int]int
 }
 
 type CascadeConfig interface {
-	SymbolWeights() map[int]int
-	BonusProbPerColumn() float64
-	BonusAwards() map[int]int
-	PayoutTable() map[int]int
+	SymbolWeights(idx int) map[int]int
+	BonusProbPerColumn(idx int) float64
+	BonusAwards(idx int) map[int]int
+	PayoutTable(idx int) map[int]int
 }
 
 type HTTPConfig interface {

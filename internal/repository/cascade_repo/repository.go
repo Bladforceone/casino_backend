@@ -247,3 +247,24 @@ func (r *repo) ResetMultiplierState(ctx context.Context, id int) error {
 	}
 	return nil
 }
+
+func (r *repo) CreateCascadeGameState(ctx context.Context, id int) error {
+	// Формируем запрос на вставку, если записи не существует
+	query := sq.Insert(table).
+		Columns(playerId).
+		Values(id).
+		Suffix("ON CONFLICT (" + playerId + ") DO NOTHING").
+		PlaceholderFormat(sq.Dollar)
+
+	sqlStr, args, err := query.ToSql()
+	if err != nil {
+		return err
+	}
+
+	_, err = r.dbc.Exec(ctx, sqlStr, args...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

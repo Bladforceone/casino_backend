@@ -8,6 +8,7 @@ import (
 type LineRepository interface {
 	GetFreeSpinCount(ctx context.Context, id int) (int, error)
 	UpdateFreeSpinCount(ctx context.Context, id int, count int) error
+	CreateLineGameState(ctx context.Context, id int) error
 }
 
 type CascadeRepository interface {
@@ -17,6 +18,8 @@ type CascadeRepository interface {
 	GetMultiplierState(ctx context.Context, id int) ([7][7]int, [7][7]int, error)
 	SetMultiplierState(ctx context.Context, id int, multMtrx, hitsMtrx [7][7]int) error
 	ResetMultiplierState(ctx context.Context, id int) error
+
+	CreateCascadeGameState(ctx context.Context, id int) error
 }
 
 type AuthRepository interface {

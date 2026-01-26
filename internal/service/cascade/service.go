@@ -9,7 +9,7 @@ import (
 )
 
 type serv struct {
-	cfg              []config.CascadeConfig
+	cfg              config.CascadeConfig
 	cascadeRepo      repository.CascadeRepository
 	userRepo         repository.UserRepository
 	cascadeStatsRepo repository.CascadeStatsRepository
@@ -18,7 +18,7 @@ type serv struct {
 
 // NewCascadeService Создать новый cascade
 func NewCascadeService(
-	cfg []config.CascadeConfig,
+	cfg config.CascadeConfig,
 	repo repository.CascadeRepository,
 	userRepo repository.UserRepository,
 	cascadeStatsRepo repository.CascadeStatsRepository,
