@@ -2,7 +2,6 @@ package env
 
 import (
 	"casino_backend/internal/config"
-	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -30,7 +29,6 @@ func NewLineConfigFromYAML(path string) (config.LineConfig, error) {
 		return nil, err
 	}
 
-	log.Println(result)
 	return &result, nil
 }
 

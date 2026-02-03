@@ -3,6 +3,7 @@ package env
 import (
 	"casino_backend/internal/config"
 	"errors"
+	"log"
 	"net"
 	"os"
 )
@@ -20,7 +21,7 @@ type httpConfig struct {
 func NewHTTPConfig() (config.HTTPConfig, error) {
 	host := os.Getenv(httpHostEnvName)
 	if len(host) == 0 {
-		return nil, errors.New("http host not found")
+		log.Printf("environment variable %s not set", httpHostEnvName)
 	}
 
 	port := os.Getenv(httpPortEnvName)

@@ -20,6 +20,7 @@ func (s *App) initServiceProvider() {
 }
 
 func (s *App) Run() error {
+	log.Printf("starting application")
 	err := config.Load(".env")
 	if err != nil {
 		log.Printf("Error loading .env file: %v", err)
@@ -34,5 +35,5 @@ func (s *App) Run() error {
 	if err != nil {
 		return err
 	}
-	return err
+	return nil
 }
