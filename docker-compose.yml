@@ -1,7 +1,30 @@
+
 volumes:
   postgres_volume:
 
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${HTTP_PORT}:8080"
+    environment:
+      - HTTP_HOST=0.0.0.0
+      - HTTP_PORT=8080
+      - PG_DSN=host=pg port=5432 dbname=${PG_DATABASE_NAME} user=${PG_USER} password=${PG_PASSWORD} sslmode=disable
+      - ACCESS_TOKEN=${ACCESS_TOKEN}
+      - ACCESS_TOKEN_DURATION=${ACCESS_TOKEN_DURATION}
+      - REFRESH_TOKEN_DURATION=${REFRESH_TOKEN_DURATION}
+    volumes:
+      - ./.env:/root/.env
+      - ./config-cascade.yaml:/root/config-cascade.yaml
+      - ./config-line.yaml:/root/config-line.yaml
+      - ./config.yaml:/root/config.yaml
+    depends_on:
+      - pg
+
+
   pg:
     image: postgres:18-alpine
     environment:
