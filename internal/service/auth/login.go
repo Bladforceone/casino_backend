@@ -18,7 +18,7 @@ func (s *serv) Login(ctx context.Context, user *model.User) (*model.AuthData, er
 
 	// Верификация пароля
 	if !pass.VerifyPassword(userRepo.Password, user.Password) {
-		return nil, errors.New("invalid password")
+		return nil, errors.New("invalid  password")
 	}
 
 	// Генерация sessionID
