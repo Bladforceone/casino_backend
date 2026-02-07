@@ -1,39 +1,13 @@
 package line
 
 import (
-	"casino_backend/internal/config"
 	"casino_backend/internal/middleware"
 	"casino_backend/internal/model"
+	servModel "casino_backend/internal/service/line/model"
 	"context"
 	"errors"
 	"log"
 	"math/rand"
-)
-
-var (
-	// Линии выплат
-	playLines = [][]int{
-		{1, 1, 1, 1, 1},
-		{0, 0, 0, 0, 0},
-		{2, 2, 2, 2, 2},
-		{0, 1, 2, 1, 0},
-		{2, 1, 0, 1, 2},
-		{0, 0, 1, 0, 0},
-		{2, 2, 1, 2, 2},
-		{1, 0, 0, 0, 1},
-		{1, 2, 2, 2, 1},
-		{1, 0, 1, 0, 1},
-		{1, 2, 1, 2, 1},
-		{0, 1, 0, 1, 0},
-		{2, 1, 2, 1, 2},
-		{1, 1, 0, 1, 1},
-		{1, 1, 2, 1, 1},
-		{0, 1, 1, 1, 2},
-		{2, 1, 1, 1, 0},
-		{0, 0, 1, 2, 2},
-		{2, 2, 1, 0, 0},
-		{1, 0, 2, 0, 1},
-	}
 )
 
 const (
@@ -41,8 +15,6 @@ const (
 	reels = 5
 	// Линии
 	rows = 3
-	// Стоимость покупки бонуса (x ставки)
-	//buyBonusMultiplier = 100
 	// Максимальная выплата в кратности ставки
 	maxPayoutMultiplier = 10000
 )
@@ -55,23 +27,24 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 		return nil, errors.New("bet must be positive and even")
 	}
 
+	// Получаем ID пользователя
 	userID, ok := middleware.UserIDFromContext(ctx)
 	if !ok {
 		return nil, errors.New("user id not found in context")
 	}
 
-	// Получаем текущий индекс конфига из статистики (вне транзакции)
-	configIndex, err := s.lineStatsRepo.GetConfigIndex()
-	if err != nil {
-		return nil, errors.New("failed to get config index")
-	}
+	// Получаем пресет весов символов исходя из статистики
+	presetCfg := servModel.RtpPresets[s.lineStatsRepo.CasinoState().PresetIndex]
+
+	// Инициализируем структуру для хранения результатов спина
 	var res *model.SpinResult
 
-	// Начало транзакции
-	err = s.txManager.Do(ctx, func(txCtx context.Context) error {
+	// Начало транзакции где выполняется процесс спина.
+	err := s.txManager.Do(ctx, func(txCtx context.Context) error {
 		// Получаем текущее количество фриспинов внутри транзакции
 		countFreeSpins, err := s.repo.GetFreeSpinCount(txCtx, userID)
 		if err != nil {
+			// Елси этих данных нет, то значит создаем их по умолчанию
 			err = s.repo.CreateLineGameState(ctx, userID)
 			if err != nil {
 				log.Println(err)
@@ -80,10 +53,15 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 			countFreeSpins = 0
 		}
 
-		var userBalance int // Локальная переменная для баланса
+		// Локальная переменная для баланса
+		var userBalance int
 
+		//TODO Бойлерплейт ниже. Два раза получаем баланс когда можно получить один раз до условия
+
+		// Платный спин
+		// Если счетчик фриспинов нулевой, то списываем деньги с баланса
 		if countFreeSpins == 0 {
-			// Платный спин
+			// Получаем баланс пользователя
 			userBalance, err = s.userRepo.GetBalance(txCtx, userID)
 			if err != nil {
 				return errors.New("failed to get user balance")
@@ -92,13 +70,13 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 				return errors.New("not enough balance")
 			}
 
-			// Списание ставки
+			// Списание ставки, обновление баланса пользователя
 			userBalance -= spinReq.Bet
 			if err := s.userRepo.UpdateBalance(txCtx, userID, userBalance); err != nil {
 				return errors.New("failed to update user balance")
 			}
-		} else {
-			// Фриспин — уменьшить счётчик
+		} else { // Иначе режим фриспинов.
+			// Уменьшаем счетчик фриспинов на 1
 			if err := s.repo.UpdateFreeSpinCount(txCtx, userID, countFreeSpins-1); err != nil {
 				return errors.New("failed to update count free spins")
 			}
@@ -109,8 +87,9 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 			}
 		}
 
+		// КЛЮЧЕВОЙ ВЫЗОВ
 		// Делаем спин (передаём countFreeSpins как параметр)
-		res, err = s.SpinOnce(spinReq, s.cfg, countFreeSpins, configIndex)
+		res, err = s.SpinOnce(spinReq, presetCfg, countFreeSpins)
 		if err != nil {
 			return err
 		}
@@ -158,7 +137,7 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 	}
 
 	// Обновляем статистику
-	err = s.lineStatsRepo.UpdateStats(res.TotalPayout, spinReq.Bet)
+	err = s.lineStatsRepo.UpdateState(float64(spinReq.Bet), float64(res.TotalPayout))
 	if err != nil {
 		return nil, errors.New("failed to update stats")
 	}
@@ -166,7 +145,7 @@ func (s *serv) Spin(ctx context.Context, spinReq model.LineSpin) (*model.SpinRes
 }
 
 // SpinOnce выполняет один спин (возвращает единый SpinResult)
-func (s *serv) SpinOnce(spinReq model.LineSpin, cfg config.LineConfig, countFreeSpins int, idx int) (*model.SpinResult, error) {
+func (s *serv) SpinOnce(spinReq model.LineSpin, preset servModel.RTPPreset, countFreeSpins int) (*model.SpinResult, error) {
 	board, err := s.GenerateBoard(countFreeSpins, cfg.WildChance(idx), cfg.SymbolWeights(idx))
 	if err != nil {
 		return nil, err
@@ -185,13 +164,13 @@ func (s *serv) SpinOnce(spinReq model.LineSpin, cfg config.LineConfig, countFree
 	// scatter payout
 	var scatterPayout int
 	if scatters > 0 {
-		if val, ok := cfg.PayoutTable(idx)["B"][scatters]; ok {
+		if val, ok := servModel.PayoutTable["B"][scatters]; ok {
 			scatterPayout = val * spinReq.Bet / 100
 		}
 	}
 
 	// line wins
-	lineWins := s.EvaluateLines(board, spinReq, cfg.PayoutTable(idx))
+	lineWins := s.EvaluateLines(board, spinReq, servModel.PayoutTable)
 	var lineTotal int
 	for _, w := range lineWins {
 		lineTotal += w.Payout
@@ -201,7 +180,7 @@ func (s *serv) SpinOnce(spinReq model.LineSpin, cfg config.LineConfig, countFree
 
 	awarded := 0
 	if scatters >= 3 {
-		if v, ok := cfg.FreeSpinsByScatter(idx)[scatters]; ok {
+		if v, ok := servModel.FreeSpinsScatter[scatters]; ok {
 			awarded = v
 		}
 	}
@@ -275,7 +254,7 @@ func (s *serv) GenerateBoard(countFreeSpins int, wildChance float64, symbolWeigh
 // EvaluateLines выполняет оценку выигрышных линий
 func (s *serv) EvaluateLines(board [5][3]string, spinReq model.LineSpin, payoutTable map[string]map[int]int) []model.LineWin {
 	var wins []model.LineWin
-	for i, line := range playLines {
+	for i, line := range servModel.PlayLines {
 		symbols := make([]string, reels)
 		for r := 0; r < 5; r++ {
 			symbols[r] = board[r][line[r]]
