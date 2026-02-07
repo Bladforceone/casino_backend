@@ -23,7 +23,7 @@ func (s *App) Run() error {
 	log.Printf("starting application")
 	err := config.Load(".env")
 	if err != nil {
-		log.Printf("Error loading .env file fff: %v", err)
+		log.Printf("Error loading .env file: %v", err)
 	}
 	s.initServiceProvider()
 
